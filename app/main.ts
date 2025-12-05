@@ -6,8 +6,10 @@ const rl = createInterface({
 });
 
 
- rl.question("$ ", (command) => {
-  console.log(`${command}: command not found`);
+while(true) {
+  rl.question("$ ", (command) => {
+    console.log(`${command}: command not found`);
 
-  rl.close();
-});
+    rl.close();
+  });
+}
