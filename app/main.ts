@@ -5,7 +5,7 @@ const rl = createInterface({
   output: process.stdout,
 });
 
-// TODO: Uncomment the code below to pass the first stage
-// rl.question("$ ", (answer) => {
-//   rl.close();
-// });
+
+ rl.question("$ ", (answer) => {
+  rl.close();
+});
