@@ -37,20 +37,22 @@ function locateExecutableFile(xFileName: string){
 }
 
 function processCommand(input: string) {
+  let consoleOutput = '';
+
   const rawInputWords = input.split(' ');
   const command = {
-    action: rawInputWords[0],
+    main: rawInputWords[0],
     leftover: rawInputWords.slice(1).join(' '),
   };
 
 
-  switch (command.action) {
+  switch (command.main) {
     case (COMMAND_ACTION.Exit):
       rl.close();
       return;
 
     case (COMMAND_ACTION.Echo):
-      console.log(`${command.leftover}`);
+      consoleOutput = `${command.leftover}`;
       break;
 
     case (COMMAND_ACTION.Type):
@@ -58,28 +60,26 @@ function processCommand(input: string) {
         const secondCommand = command.leftover;
         const rawCommandsPool = Object.values(COMMAND_ACTION);
 
-        if (!secondCommand) {
-          break;
-        }
-
-        let typeResult: null | string = null;
+        let tmpResult: null | string = null;
 
         //@ts-expect-error
         if (rawCommandsPool.includes(secondCommand)) {
-          typeResult = `${secondCommand} is a shell builtin`;
+          tmpResult = `${secondCommand} is a shell builtin`;
         }
 
-        if (!typeResult) {
-          typeResult = locateExecutableFile(secondCommand);
+        if (!tmpResult) {
+          tmpResult = locateExecutableFile(secondCommand);
         }
 
-        console.log(typeResult ?? `${secondCommand} not found`);
+        consoleOutput = tmpResult ?? `${secondCommand} not found`;
       }
       break;
 
     default:
-      console.log("".concat(input, ": command not found"));
+      consoleOutput = `${input}: command not found`;
   }
+
+  console.log(consoleOutput);
 }
 
 function REPL() {
