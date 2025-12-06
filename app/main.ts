@@ -8,43 +8,16 @@ const rl = createInterface({
   output: process.stdout,
 });
 
-enum CommandAction {
-  Exit = 'exit',
-  Unknown = 'unknown',
-  Echo = 'echo',
-  Type = 'type',
-}
-
-function normalizeCommand(rawInput: string) {
-  const rawInputWords = rawInput.split(' ');
-  const firstWord = rawInputWords[0];
-  const restOfInput = rawInputWords.slice(1).join(' ');
-
-  switch (firstWord) {
-    case (CommandAction.Exit):
-      return {
-        action: CommandAction.Exit,
-      };
-    case (CommandAction.Echo):
-      return {
-        action: CommandAction.Echo,
-        rest: restOfInput,
-      }
-    case (CommandAction.Type):
-      return {
-        action: CommandAction.Type,
-        rest: restOfInput,
-      }
-    default:
-      return {
-        action: CommandAction.Unknown,
-      }
-  }
-};
+const COMMAND_ACTION = {
+  Exit: 'exit',
+  Echo: 'echo',
+  Type: 'type',
+} as const;
 
 function locateExecutableFile(xFileName: string){
-  const pathArr = process.env.PATH?.split(path.delimiter) || [];
-  let result: string | null = null;
+  const envPath = process.env.PATH ||'';
+  const pathArr = envPath.split(path.delimiter);
+  let result = null;
 
   for (const tmpPath of pathArr) {
     if (result) {
@@ -52,64 +25,66 @@ function locateExecutableFile(xFileName: string){
     }
 
     try {
-      const files = fs.readdirSync(path.join(tmpPath), {withFileTypes: true});
+      const filePath = path.join(tmpPath, xFileName);
 
-      for (const file of files) {
-        if(file.name === xFileName) {
-          const filePath = path.join(tmpPath, file.name);
+      fs.accessSync(filePath, fs.constants.X_OK);
+      result = `${xFileName} is ${filePath}`;
 
-          try {
-            fs.accessSync(filePath, fs.constants.X_OK);
-            result = `${file.name} is ${filePath}`;
-          } catch {}
-
-          break;
-        }
-      }
     } catch {}
   }
 
   return result;
 }
 
+function processCommand(input: string) {
+  const rawInputWords = input.split(' ');
+  const command = {
+    action: rawInputWords[0],
+    leftover: rawInputWords.slice(1).join(' '),
+  };
+
+
+  switch (command.action) {
+    case (COMMAND_ACTION.Exit):
+      rl.close();
+      return;
+
+    case (COMMAND_ACTION.Echo):
+      console.log(`${command.leftover}`);
+      break;
+
+    case (COMMAND_ACTION.Type):
+      {
+        const secondCommand = command.leftover;
+        const rawCommandsPool = Object.values(COMMAND_ACTION);
+
+        if (!secondCommand) {
+          break;
+        }
+
+        let typeResult: null | string = null;
+
+        //@ts-expect-error
+        if (rawCommandsPool.includes(secondCommand)) {
+          typeResult = `${secondCommand} is a shell builtin`;
+        }
+
+        if (!typeResult) {
+          typeResult = locateExecutableFile(secondCommand);
+        }
+
+        console.log(typeResult ?? `${secondCommand} not found`);
+      }
+      break;
+
+    default:
+      console.log("".concat(input, ": command not found"));
+  }
+}
+
 function REPL() {
   rl.question("$ ", function (input) {
-    const command = normalizeCommand(input);
-
-    switch(command.action) {
-      case(CommandAction.Exit):
-        rl.close();
-        return;
-
-      case(CommandAction.Echo):
-        console.log(`${command.rest}`);
-        break;
-
-      case(CommandAction.Type):
-        {
-          const tmpCommand = command.rest;
-
-          if (!tmpCommand) {
-            break;
-          }
-
-          let typeResult: null | string = null;
-
-          if (normalizeCommand(tmpCommand).action !== CommandAction.Unknown) {
-            typeResult = `${tmpCommand} is a shell builtin`;
-          }
-
-          if (!typeResult) {
-            typeResult = locateExecutableFile(tmpCommand);
-          }
-
-          console.log(typeResult ?? `${tmpCommand} not found`);
-        }
-        break;
-
-      case(CommandAction.Unknown):
-        console.log("".concat(input, ": command not found"));
-    }
+    processCommand(input);
 
     REPL();
   });
