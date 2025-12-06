@@ -58,8 +58,8 @@ function REPL() {
 
           console.log(
             normalizeCommand(tmpCommand).action !== CommandAction.Unknown
-              ? `${tmpCommand}: is a shell builtin`
-              : `${tmpCommand}: not found`
+              ? `${tmpCommand} is a shell builtin`
+              : `${tmpCommand} not found`
           );
         }
         break;
