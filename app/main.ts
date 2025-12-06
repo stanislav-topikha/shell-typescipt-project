@@ -72,8 +72,6 @@ function locateExecutableFile(xFileName: string){
   return result;
 }
 
-console.log(locateExecutableFile('pfctl'));
-
 function REPL() {
   rl.question("$ ", function (input) {
     const command = normalizeCommand(input);
