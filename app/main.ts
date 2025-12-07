@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
@@ -14,7 +15,7 @@ const COMMAND_ACTION = {
   Type: 'type',
 } as const;
 
-function locateExecutableFile(xFileName: string){
+function getExe(xFileName: string){
   const envPath = process.env.PATH ||'';
   const pathArr = envPath.split(path.delimiter);
   let result = null;
@@ -28,7 +29,10 @@ function locateExecutableFile(xFileName: string){
       const filePath = path.join(tmpPath, xFileName);
 
       fs.accessSync(filePath, fs.constants.X_OK);
-      result = `${xFileName} is ${filePath}`;
+      result =  {
+        fileName: xFileName,
+        filePath,
+      };
 
     } catch {}
   }
@@ -36,8 +40,23 @@ function locateExecutableFile(xFileName: string){
   return result;
 }
 
+function runExe(exeName: string, args: string[]) {
+  let output: null|string = null;
+
+  try {
+    const buffer = args.length
+      ? execFileSync(exeName, args)
+      : execFileSync(exeName);
+
+    output = buffer.toString();
+  } catch {
+  }
+
+  return output;
+}
+
 function processCommand(input: string) {
-  let consoleOutput = '';
+  let consoleOutput: null | string = null;
 
   const rawInputWords = input.split(' ');
   const command = {
@@ -45,11 +64,10 @@ function processCommand(input: string) {
     leftover: rawInputWords.slice(1).join(' '),
   };
 
-
   switch (command.main) {
     case (COMMAND_ACTION.Exit):
       rl.close();
-      return;
+      return true;
 
     case (COMMAND_ACTION.Echo):
       consoleOutput = `${command.leftover}`;
@@ -68,15 +86,24 @@ function processCommand(input: string) {
         }
 
         if (!tmpResult) {
-          tmpResult = locateExecutableFile(secondCommand);
+          const exe = getExe(secondCommand);
+          tmpResult = (
+            exe && `${exe.fileName} is ${exe.filePath}`
+          ) ?? (
+            `${secondCommand} not found`
+          );
         }
 
-        consoleOutput = tmpResult ?? `${secondCommand} not found`;
+        consoleOutput = tmpResult;
       }
       break;
 
     default:
-      consoleOutput = `${input}: command not found`;
+      const exe = getExe(command.main);
+      const args = command.leftover.split(' ').map(s => s.trim()).filter(Boolean);
+      consoleOutput ??= exe && runExe(exe.filePath, args);
+
+      consoleOutput ??= `${input}: command not found`;
   }
 
   console.log(consoleOutput);
@@ -84,7 +111,9 @@ function processCommand(input: string) {
 
 function REPL() {
   rl.question("$ ", function (input) {
-    processCommand(input);
+    if (processCommand(input)) {
+      return;
+    }
 
     REPL();
   });
