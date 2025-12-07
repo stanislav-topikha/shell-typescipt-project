@@ -105,8 +105,11 @@ function processCommand(input: string) {
 
       consoleOutput ??= `${input}: command not found`;
   }
+    consoleOutput = consoleOutput.endsWith('\n')
+      ? consoleOutput
+      : `${consoleOutput}\n`;
 
-  console.log(consoleOutput);
+    process.stdout.write(consoleOutput);
 }
 
 function REPL() {
