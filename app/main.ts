@@ -13,7 +13,8 @@ const COMMAND_ACTION = {
   Exit: 'exit',
   Echo: 'echo',
   Type: 'type',
-  PWD: 'pwd'
+  PWD: 'pwd',
+  CD:'cd',
 } as const;
 
 function getExe(xFileName: string){
@@ -54,6 +55,14 @@ function runExe(exeName: string, args: string[]) {
   }
 
   return output;
+}
+
+function giveOutput(input:string) {
+  const output = input.endsWith('\n')
+    ? input
+    : `${input}\n`;
+
+  process.stdout.write(output);
 }
 
 function processCommand(input: string) {
@@ -100,9 +109,18 @@ function processCommand(input: string) {
       break;
 
     case (COMMAND_ACTION.PWD):
-      consoleOutput = process.env.PWD as string;
+      consoleOutput = process.cwd();
       consoleOutput ??= 'PWD failed';
 
+      break;
+
+    case (COMMAND_ACTION.CD):
+      try {
+        process.chdir(command.leftover);
+        return;
+      } catch {
+        consoleOutput = `cd: ${command.leftover}: No such file or directory`
+      }
       break;
 
     default:
@@ -112,11 +130,8 @@ function processCommand(input: string) {
 
       consoleOutput ??= `${input}: command not found`;
   }
-    consoleOutput = consoleOutput.endsWith('\n')
-      ? consoleOutput
-      : `${consoleOutput}\n`;
 
-    process.stdout.write(consoleOutput);
+  giveOutput(consoleOutput);
 }
 
 function REPL() {
