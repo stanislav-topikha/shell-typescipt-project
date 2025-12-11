@@ -70,7 +70,17 @@ function processCommand(input: string) {
   const rawInputWords = input.split(' ');
   const command = {
     main: rawInputWords[0],
-    leftover: rawInputWords.slice(1).join(' '),
+    leftover: (() => {
+      const leftover = rawInputWords.slice(1).join(' ');
+      const regexp = RegExp(/(['].+?['])|(([\w]|[^'])+\w)/g);
+      const tmpWords = leftover.match(regexp) || [];
+
+      return tmpWords.map((string) => {
+        return string.at(0) === `'` && string.at(-1) === `'`
+          ? string.slice(1, -1)
+          : string.replaceAll(/\s+/g,' ');
+      }).filter(Boolean).join('');
+    })(),
   };
 
   switch (command.main) {
