@@ -95,7 +95,7 @@ function processCommand(input: string) {
     }
 
     case (COMMAND_ACTION.Echo): {
-      consoleOutput = `${command.leftover.join('')}`;
+      consoleOutput = `${command.leftoverWords.join('')}`;
       break;
     }
 
