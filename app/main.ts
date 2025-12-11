@@ -51,8 +51,7 @@ function runExe(exeName: string, args: string[]) {
       : execFileSync(exeName);
 
     output = buffer.toString();
-  } catch {
-  }
+  } catch {}
 
   return output;
 }
@@ -75,23 +74,23 @@ function processCommand(input: string) {
   };
 
   switch (command.main) {
-    case (COMMAND_ACTION.Exit):
+    case (COMMAND_ACTION.Exit): {
       rl.close();
       return true;
+    }
 
-    case (COMMAND_ACTION.Echo):
+    case (COMMAND_ACTION.Echo): {
       consoleOutput = `${command.leftover}`;
       break;
+    }
 
-    case (COMMAND_ACTION.Type):
-      {
+    case (COMMAND_ACTION.Type): {
         const secondCommand = command.leftover;
         const rawCommandsPool = Object.values(COMMAND_ACTION);
 
         let tmpResult: null | string = null;
 
-        //@ts-expect-error
-        if (rawCommandsPool.includes(secondCommand)) {
+        if (rawCommandsPool.some(str => str ===secondCommand)) {
           tmpResult = `${secondCommand} is a shell builtin`;
         }
 
@@ -105,30 +104,40 @@ function processCommand(input: string) {
         }
 
         consoleOutput = tmpResult;
-      }
-      break;
 
-    case (COMMAND_ACTION.PWD):
+        break;
+      }
+
+    case (COMMAND_ACTION.PWD): {
       consoleOutput = process.cwd();
       consoleOutput ??= 'PWD failed';
 
       break;
+    }
 
-    case (COMMAND_ACTION.CD):
+    case (COMMAND_ACTION.CD): {
       try {
-        process.chdir(command.leftover);
+        const homePath = process.env['HOME'];
+        const tmpLeftover = typeof homePath === 'string' && command.leftover.startsWith('~')
+          ? command.leftover.replace('~', homePath)
+          : command.leftover;
+
+        process.chdir(tmpLeftover);
         return;
       } catch {
         consoleOutput = `cd: ${command.leftover}: No such file or directory`
       }
       break;
+    }
 
-    default:
+
+    default: {
       const exe = getExe(command.main);
       const args = command.leftover.split(' ').map(s => s.trim()).filter(Boolean);
       consoleOutput ??= exe && runExe(exe.fileName, args);
 
       consoleOutput ??= `${input}: command not found`;
+    }
   }
 
   giveOutput(consoleOutput);
