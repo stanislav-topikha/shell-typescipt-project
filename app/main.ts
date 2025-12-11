@@ -84,8 +84,8 @@ function processCommand(input: string) {
 
   const command = {
     main: rawInputWords[mainCommandIndex],
-    leftover: rawInputWords.slice(mainCommandIndex + 1),
-    leftoverWords: rawInputWords.slice(mainCommandIndex + 1).filter(isWord),
+    leftover: rawInputWords.slice(mainCommandIndex + 2),
+    leftoverWords: rawInputWords.slice(mainCommandIndex + 2).filter(isWord),
   };
 
   switch (command.main) {
@@ -95,7 +95,7 @@ function processCommand(input: string) {
     }
 
     case (COMMAND_ACTION.Echo): {
-      consoleOutput = `${command.leftoverWords.join(' ')}`;
+      consoleOutput = `${command.leftover.join('')}`;
       break;
     }
 
