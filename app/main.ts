@@ -13,6 +13,7 @@ const COMMAND_ACTION = {
   Exit: 'exit',
   Echo: 'echo',
   Type: 'type',
+  PWD: 'pwd'
 } as const;
 
 function getExe(xFileName: string){
@@ -96,6 +97,12 @@ function processCommand(input: string) {
 
         consoleOutput = tmpResult;
       }
+      break;
+
+    case (COMMAND_ACTION.PWD):
+      consoleOutput = process.env.PWD as string;
+      consoleOutput ??= 'PWD failed';
+
       break;
 
     default:
