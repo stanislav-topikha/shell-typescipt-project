@@ -64,23 +64,28 @@ function giveOutput(input:string) {
   process.stdout.write(output);
 }
 
+const isWord = (srt: string) => !!srt.trim();
+
+function processString(str: string) {
+  const regexp = RegExp(/('.+?')|(\s+)|([^\s']+)/g);
+  const tmpWords = str.match(regexp) || [];
+
+  return tmpWords.map((string) => {
+    return string.at(0) === `'` && string.at(-1) === `'`
+      ? string.slice(1, -1)
+      : string.replaceAll(/\s+/g,' ');
+  }).filter(Boolean);
+}
+
 function processCommand(input: string) {
   let consoleOutput: null | string = null;
+  const rawInputWords = processString(input);
+  const mainCommandIndex = rawInputWords.findIndex(isWord);
 
-  const rawInputWords = input.split(' ');
   const command = {
-    main: rawInputWords[0],
-    leftover: (() => {
-      const leftover = rawInputWords.slice(1).join(' ');
-      const regexp = RegExp(/(['].+?['])|(([\w]|[^'\s])*\w)|\s*/g);
-      const tmpWords = leftover.match(regexp) || [];
-
-      return tmpWords.map((string) => {
-        return string.at(0) === `'` && string.at(-1) === `'`
-          ? string.slice(1, -1)
-          : string.replaceAll(/\s+/g,' ');
-      }).filter(Boolean).join('');
-    })(),
+    main: rawInputWords[mainCommandIndex],
+    leftover: rawInputWords.slice(mainCommandIndex + 1),
+    leftoverWords: rawInputWords.slice(mainCommandIndex + 1).filter(isWord),
   };
 
   switch (command.main) {
@@ -90,14 +95,13 @@ function processCommand(input: string) {
     }
 
     case (COMMAND_ACTION.Echo): {
-      consoleOutput = `${command.leftover}`;
+      consoleOutput = `${command.leftover.join('')}`;
       break;
     }
 
     case (COMMAND_ACTION.Type): {
-        const secondCommand = command.leftover;
+        const secondCommand = command.leftoverWords[0];
         const rawCommandsPool = Object.values(COMMAND_ACTION);
-
         let tmpResult: null | string = null;
 
         if (rawCommandsPool.some(str => str ===secondCommand)) {
@@ -126,16 +130,18 @@ function processCommand(input: string) {
     }
 
     case (COMMAND_ACTION.CD): {
+      const tmpPath = command.leftoverWords[0];
+
       try {
         const homePath = process.env['HOME'];
-        const tmpLeftover = typeof homePath === 'string' && command.leftover.startsWith('~')
-          ? command.leftover.replace('~', homePath)
-          : command.leftover;
+        const tmpLeftover = typeof homePath === 'string' && tmpPath.startsWith('~')
+          ? tmpPath.replace('~', homePath)
+          : tmpPath;
 
         process.chdir(tmpLeftover);
         return;
       } catch {
-        consoleOutput = `cd: ${command.leftover}: No such file or directory`
+        consoleOutput = `cd: ${tmpPath}: No such file or directory`
       }
       break;
     }
@@ -143,7 +149,7 @@ function processCommand(input: string) {
 
     default: {
       const exe = getExe(command.main);
-      const args = command.leftover.split(' ').map(s => s.trim()).filter(Boolean);
+      const args = command.leftoverWords;
       consoleOutput ??= exe && runExe(exe.fileName, args);
 
       consoleOutput ??= `${input}: command not found`;
