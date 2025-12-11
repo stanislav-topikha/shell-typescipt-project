@@ -72,7 +72,7 @@ function processCommand(input: string) {
     main: rawInputWords[0],
     leftover: (() => {
       const leftover = rawInputWords.slice(1).join(' ');
-      const regexp = RegExp(/(['].+?['])|(([\w]|[^'])+\w)/g);
+      const regexp = RegExp(/(['].+?['])|(([\w]|[^'\s])*\w)|\s*/g);
       const tmpWords = leftover.match(regexp) || [];
 
       return tmpWords.map((string) => {
