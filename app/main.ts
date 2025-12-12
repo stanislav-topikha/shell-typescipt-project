@@ -73,6 +73,7 @@ function processString(str: string) {
     return str.at(0) === encapser && str.at(-1) === encapser
   };
 
+  //remove encapsing quotes, normalize non word stings to single spaces
   return tmpWords.map((string) => {
     return isEncapsed(string, `'`) || isEncapsed(string, `"`)
       ? string.slice(1, -1)
@@ -84,6 +85,10 @@ function processCommand(input: string) {
   let consoleOutput: null | string = null;
   const rawInputWords = processString(input);
   const mainCommandIndex = rawInputWords.findIndex(isWord);
+
+  if (mainCommandIndex < 0) {
+    return;
+  }
 
   const command = {
     main: rawInputWords[mainCommandIndex],
@@ -104,6 +109,11 @@ function processCommand(input: string) {
 
     case (COMMAND_ACTION.Type): {
         const secondCommand = command.leftoverWords[0];
+
+        if (!secondCommand) {
+          return;
+        }
+
         const rawCommandsPool = Object.values(COMMAND_ACTION);
         let tmpResult: null | string = null;
 
@@ -153,7 +163,7 @@ function processCommand(input: string) {
     default: {
       const exe = getExe(command.main);
       const args = command.leftoverWords;
-      consoleOutput ??= exe && runExe(exe.fileName, args);
+      consoleOutput ??= exe && runExe(exe.filePath, args);
 
       consoleOutput ??= `${input}: command not found`;
     }
