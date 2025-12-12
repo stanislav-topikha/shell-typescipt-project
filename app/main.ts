@@ -67,7 +67,7 @@ function giveOutput(input:string) {
 const isWord = (srt: string) => !!srt.trim();
 
 function processString(str: string) {
-  const regexp = RegExp(/('.+?')|(".+?")|(\s+)|([^\s']+)/g);
+  const regexp = RegExp(/('.+?')|(".+?")|(\s+)|([^\s'"]+)/g);
   const tmpWords = str.match(regexp) || [];
   const isEncapsed = (str: string, encapser: `'` | `"`) => {
     return str.at(0) === encapser && str.at(-1) === encapser
