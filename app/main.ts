@@ -67,17 +67,22 @@ function giveOutput(input:string) {
 const isWord = (srt: string) => !!srt.trim();
 
 function processString(str: string) {
-  const regexp = RegExp(/('.+?')|(".+?")|(\s+)|([^\s'"]+)/g);
+  const regexp = RegExp(/((?<=\\).{1})|('.+?')|(".+?")|(\s+)|([^\s'"\\]+)/g);
   const tmpWords = str.match(regexp) || [];
   const isEncapsed = (str: string, encapser: `'` | `"`) => {
-    return str.at(0) === encapser && str.at(-1) === encapser
+    return str[0] === encapser && str[str.length - 1]
   };
 
   //remove encapsing quotes, normalize non word stings to single spaces
   return tmpWords.map((string) => {
-    return isEncapsed(string, `'`) || isEncapsed(string, `"`)
-      ? string.slice(1, -1)
-      : string.replaceAll(/\s+/g,' ');
+
+    if (string.length > 2 && (
+      isEncapsed(string, `'`) || isEncapsed(string, `"`)
+    )) {
+      return string.slice(1, -1);
+    }
+
+    return string.replaceAll(/\s+/g,' ');
   }).filter(Boolean);
 }
 
