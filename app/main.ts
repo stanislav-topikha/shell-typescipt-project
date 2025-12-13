@@ -168,7 +168,7 @@ function processCommand(input: string) {
     default: {
       const exe = getExe(command.main);
       const args = command.leftoverWords;
-      consoleOutput ??= exe && runExe(exe.filePath, args);
+      consoleOutput ??= exe && runExe(exe.fileName, args);
 
       consoleOutput ??= `${input}: command not found`;
     }
