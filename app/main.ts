@@ -83,10 +83,10 @@ function processString(str: string) {
     }
 
     if (string.length > 2 && isEncapsed(string, `"`)) {
-      return string.slice(1, -1).match(regexp)?.join('');
+      return string.slice(1, -1).replaceAll(/(?<!\\)\\/g, '');
     }
 
-    return string.replaceAll(/\s+/g,' ');
+    return string.replaceAll(/\s+/g,' ');e
   }).filter(Boolean);
 }
 
