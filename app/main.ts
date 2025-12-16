@@ -101,7 +101,7 @@ function detectRedirect(
 ): null|{
   redirectIndex: number,
   redirectSign: typeof REDIRECT_SIGN[keyof typeof REDIRECT_SIGN],
-  fileArgs?: string[]
+  fileArgs?: string,
 } {
   let redirectIndex = null;
   let redirectSign: null | typeof REDIRECT_SIGN[keyof typeof REDIRECT_SIGN]= null;
@@ -123,15 +123,24 @@ function detectRedirect(
   return redirectIndex && redirectSign ? {redirectIndex, redirectSign} : null;
 }
 
+function redirectOutput(file: string, output: string) {
+  try {
+    fs.writeFileSync(file, output);
+    return null;
+  } catch (e) {
+    return e as string;
+  }
+};
+
 function processCommand(input: string) {
   let consoleOutput: null | string = null;
   let rawInputWords = processString(input);
   const redirect = detectRedirect(rawInputWords);
 
-  console.log(redirect);
-
   if (redirect) {
-    redirect.fileArgs  = rawInputWords.splice(redirect.redirectIndex);
+    redirect.fileArgs  = rawInputWords
+      .splice(redirect.redirectIndex)
+      .filter(isWord)[1];
   }
 
   const mainCommandIndex = rawInputWords.findIndex(isWord);
@@ -187,7 +196,6 @@ function processCommand(input: string) {
 
     case (COMMAND_ACTION.PWD): {
       consoleOutput = process.cwd();
-      consoleOutput ??= 'PWD failed';
 
       break;
     }
@@ -214,12 +222,21 @@ function processCommand(input: string) {
       const exe = getExe(command.main);
       const args = command.leftoverWords;
       consoleOutput ??= exe && runExe(exe.fileName, args);
-
-      consoleOutput ??= `${input}: command not found`;
     }
   }
 
-  giveOutput(consoleOutput);
+  console.log(redirect);
+
+  let redirectError = null;
+  if (redirect && redirect.fileArgs) {
+    redirectError = redirectOutput(redirect.fileArgs, consoleOutput || '')
+  }
+
+  if (redirectError) {
+    consoleOutput = redirectError;
+  }
+
+  giveOutput(consoleOutput ?? `${input}: command not found`);
 }
 
 function REPL() {
