@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
@@ -40,10 +40,13 @@ function getExe(xFileName: string){
 
 function runExe(exeName: string, args: string[]) {
   const buffer = args.length
-    ? execFileSync(exeName, args)
-    : execFileSync(exeName);
+    ? spawnSync(exeName, args)
+    : spawnSync(exeName);
 
-  return buffer.toString();
+  return {
+    output: buffer.stdout.toString(),
+    error: buffer.stderr.toString()
+  };
 }
 
 function giveOutput(input:string) {
@@ -117,41 +120,44 @@ function generateOutput(command: {
     main: string;
     leftover: string[];
     leftoverWords: string[];
-}) {
+}): {
+  output?: string,
+  error?: string,
+} {
     switch (command.main) {
     case (COMMAND_ACTION.Exit): {
       rl.close();
-      return COMMAND_ACTION.Exit;
+      return {output: COMMAND_ACTION.Exit};
     }
 
     case (COMMAND_ACTION.Echo): {
-      return `${command.leftover.join('')}`;
+      return {output: `${command.leftover.join('')}`};
     }
 
     case (COMMAND_ACTION.Type): {
         const secondCommand = command.leftoverWords[0];
 
         if (!secondCommand) {
-          return null;
+          return {};
         }
 
         const rawCommandsPool = Object.values(COMMAND_ACTION);
 
         if (rawCommandsPool.some(str => str === secondCommand)) {
-          return `${secondCommand} is a shell builtin`;
+          return {output: `${secondCommand} is a shell builtin`};
         }
 
         const exe = getExe(secondCommand);
 
         if (exe) {
-          return `${exe.fileName} is ${exe.filePath}`;
+          return {output: `${exe.fileName} is ${exe.filePath}`};
         }
 
-        throw new Error(`${secondCommand} not found`);
+        return {error: `${secondCommand} not found`};
     }
 
     case (COMMAND_ACTION.PWD): {
-      return process.cwd();
+      return {output: process.cwd()};
     }
 
     case (COMMAND_ACTION.CD): {
@@ -164,9 +170,9 @@ function generateOutput(command: {
           : tmpPath;
         process.chdir(tmpLeftover);
       } catch {
-        throw new Error(`cd: ${tmpPath}: No such file or directory`);
+        return {error: `cd: ${tmpPath}: No such file or directory`};
       }
-      return null;
+      return {};
     }
 
 
@@ -178,9 +184,7 @@ function generateOutput(command: {
         throw new Error('Command not found');
       }
 
-      try {
-        return runExe(exe.fileName, args);
-      } catch {}
+      return runExe(exe.fileName, args);
     }
   }
 }
@@ -213,32 +217,36 @@ function processCommand(input: string) {
   };
 
 
-  let consoleOutput: null | string = null;
-  let consoleError: null | string = null;
-
-  try {
-    consoleOutput = generateOutput(command);
-  } catch(e) {
-    consoleError = e instanceof Error ? e.message : `${e}`;
-  }
+  let {output: consoleOutput, error: consoleError} = generateOutput(command);
 
   if (consoleOutput === COMMAND_ACTION.Exit) {
     return true;
   }
 
-  if (redirect?.fileArgs && consoleOutput) {
-    redirectOutput(redirect.fileArgs, consoleOutput);
+  if (redirect?.fileArgs && (consoleOutput || consoleError)) {
+    redirectOutput(redirect.fileArgs, consoleOutput || '');
 
-    return;
-  } else if (redirect?.fileArgs && consoleError) {
-    redirectOutput(redirect.fileArgs, '');
+    consoleOutput = undefined;
   }
 
   if (consoleError === 'Command not found') {
     consoleError =`${input}: command not found`;
   }
 
-  const tmpOutput = consoleOutput || consoleError
+  const tmpOutput = (()=>{
+    if (consoleOutput && !consoleError) {
+      return consoleOutput
+    }
+
+    if(!consoleOutput && consoleError)
+    return consoleError;
+
+    if (consoleOutput && consoleError) {
+      return consoleError + consoleOutput;
+    }
+
+    return null;
+  })();
   tmpOutput && giveOutput(tmpOutput);
 }
 
