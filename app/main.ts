@@ -39,8 +39,6 @@ function getExe(xFileName: string){
 }
 
 function runExe(exeName: string, args: string[]) {
-  let output: null|string = null;
-
   const buffer = args.length
     ? execFileSync(exeName, args)
     : execFileSync(exeName);
@@ -164,22 +162,25 @@ function generateOutput(command: {
         const tmpLeftover = typeof homePath === 'string' && tmpPath.startsWith('~')
           ? tmpPath.replace('~', homePath)
           : tmpPath;
-
         process.chdir(tmpLeftover);
-        return null;
       } catch {
         throw new Error(`cd: ${tmpPath}: No such file or directory`);
       }
+      return null;
     }
 
 
     default: {
       const args = command.leftoverWords;
       const exe = getExe(command.main);
-      if (exe) {
-        return runExe(exe.fileName, args);
+
+      if (!exe) {
+        throw new Error('Command not found');
       }
-      throw new Error('Command not found');
+
+      try {
+        return runExe(exe.fileName, args);
+      } catch {}
     }
   }
 }
