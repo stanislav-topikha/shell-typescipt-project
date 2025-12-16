@@ -181,7 +181,7 @@ function generateOutput(command: {
       const exe = getExe(command.main);
 
       if (!exe) {
-        throw new Error('Command not found');
+        return {error: 'Command not found'};
       }
 
       return runExe(exe.fileName, args);
