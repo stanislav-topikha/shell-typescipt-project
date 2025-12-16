@@ -20,18 +20,14 @@ const COMMAND_ACTION = {
 function getExe(xFileName: string){
   const envPath = process.env.PATH ||'';
   const pathArr = envPath.split(path.delimiter);
-  let result = null;
 
   for (const tmpPath of pathArr) {
-    if (result) {
-      break;
-    }
-
     try {
       const filePath = path.join(tmpPath, xFileName);
 
       fs.accessSync(filePath, fs.constants.X_OK);
-      result =  {
+
+      return {
         fileName: xFileName,
         filePath,
       };
@@ -39,21 +35,17 @@ function getExe(xFileName: string){
     } catch {}
   }
 
-  return result;
+  return null;
 }
 
 function runExe(exeName: string, args: string[]) {
   let output: null|string = null;
 
-  try {
-    const buffer = args.length
-      ? execFileSync(exeName, args)
-      : execFileSync(exeName);
+  const buffer = args.length
+    ? execFileSync(exeName, args)
+    : execFileSync(exeName);
 
-    output = buffer.toString();
-  } catch {}
-
-  return output;
+  return buffer.toString();
 }
 
 function giveOutput(input:string) {
@@ -123,17 +115,81 @@ function detectRedirect(
   return redirectIndex && redirectSign ? {redirectIndex, redirectSign} : null;
 }
 
-function redirectOutput(file: string, output: string) {
-  try {
-    fs.writeFileSync(file, output);
-    return null;
-  } catch (e) {
-    return e as string;
+function generateOutput(command: {
+    main: string;
+    leftover: string[];
+    leftoverWords: string[];
+}) {
+    switch (command.main) {
+    case (COMMAND_ACTION.Exit): {
+      rl.close();
+      return COMMAND_ACTION.Exit;
+    }
+
+    case (COMMAND_ACTION.Echo): {
+      return `${command.leftover.join('')}`;
+    }
+
+    case (COMMAND_ACTION.Type): {
+        const secondCommand = command.leftoverWords[0];
+
+        if (!secondCommand) {
+          return null;
+        }
+
+        const rawCommandsPool = Object.values(COMMAND_ACTION);
+
+        if (rawCommandsPool.some(str => str === secondCommand)) {
+          return `${secondCommand} is a shell builtin`;
+        }
+
+        const exe = getExe(secondCommand);
+
+        if (exe) {
+          return `${exe.fileName} is ${exe.filePath}`;
+        }
+
+        throw new Error(`${secondCommand} not found`);
+    }
+
+    case (COMMAND_ACTION.PWD): {
+      return process.cwd();
+    }
+
+    case (COMMAND_ACTION.CD): {
+      const tmpPath = command.leftoverWords[0];
+
+      try {
+        const homePath = process.env['HOME'];
+        const tmpLeftover = typeof homePath === 'string' && tmpPath.startsWith('~')
+          ? tmpPath.replace('~', homePath)
+          : tmpPath;
+
+        process.chdir(tmpLeftover);
+        return null;
+      } catch {
+        throw new Error(`cd: ${tmpPath}: No such file or directory`);
+      }
+    }
+
+
+    default: {
+      const args = command.leftoverWords;
+      const exe = getExe(command.main);
+      if (exe) {
+        return runExe(exe.fileName, args);
+      }
+      throw new Error('Command not found');
+    }
   }
+}
+
+function redirectOutput(file: string, output: string) {
+  fs.writeFileSync(file, output);
 };
 
+//Main flow
 function processCommand(input: string) {
-  let consoleOutput: null | string = null;
   let rawInputWords = processString(input);
   const redirect = detectRedirect(rawInputWords);
 
@@ -155,88 +211,34 @@ function processCommand(input: string) {
     leftoverWords: rawInputWords.slice(mainCommandIndex + 2).filter(isWord),
   };
 
-  switch (command.main) {
-    case (COMMAND_ACTION.Exit): {
-      rl.close();
-      return true;
-    }
 
-    case (COMMAND_ACTION.Echo): {
-      consoleOutput = `${command.leftover.join('')}`;
-      break;
-    }
+  let consoleOutput: null | string = null;
+  let consoleError: null | string = null;
 
-    case (COMMAND_ACTION.Type): {
-        const secondCommand = command.leftoverWords[0];
-
-        if (!secondCommand) {
-          return;
-        }
-
-        const rawCommandsPool = Object.values(COMMAND_ACTION);
-        let tmpResult: null | string = null;
-
-        if (rawCommandsPool.some(str => str ===secondCommand)) {
-          tmpResult = `${secondCommand} is a shell builtin`;
-        }
-
-        if (!tmpResult) {
-          const exe = getExe(secondCommand);
-          tmpResult = (
-            exe && `${exe.fileName} is ${exe.filePath}`
-          ) ?? (
-            `${secondCommand} not found`
-          );
-        }
-
-        consoleOutput = tmpResult;
-
-        break;
-      }
-
-    case (COMMAND_ACTION.PWD): {
-      consoleOutput = process.cwd();
-
-      break;
-    }
-
-    case (COMMAND_ACTION.CD): {
-      const tmpPath = command.leftoverWords[0];
-
-      try {
-        const homePath = process.env['HOME'];
-        const tmpLeftover = typeof homePath === 'string' && tmpPath.startsWith('~')
-          ? tmpPath.replace('~', homePath)
-          : tmpPath;
-
-        process.chdir(tmpLeftover);
-        return;
-      } catch {
-        consoleOutput = `cd: ${tmpPath}: No such file or directory`
-      }
-      break;
-    }
-
-
-    default: {
-      const exe = getExe(command.main);
-      const args = command.leftoverWords;
-      consoleOutput ??= exe && runExe(exe.fileName, args);
-    }
+  try {
+    consoleOutput = generateOutput(command);
+  } catch(e) {
+    consoleError = e instanceof Error ? e.message : `${e}`;
   }
 
-  console.log(redirect);
-
-  let redirectError = null;
-  if (redirect && redirect.fileArgs) {
-    redirectError = redirectOutput(redirect.fileArgs, consoleOutput || '')
+  if (consoleOutput === COMMAND_ACTION.Exit) {
+    return true;
   }
 
-  if (redirectError) {
-    consoleOutput = redirectError;
+  if (redirect?.fileArgs && consoleOutput) {
+    redirectOutput(redirect.fileArgs, consoleOutput);
+
+    return;
+  } else if (redirect?.fileArgs && consoleError) {
+    redirectOutput(redirect.fileArgs, '');
   }
 
-  giveOutput(consoleOutput ?? `${input}: command not found`);
+  if (consoleError === 'Command not found') {
+    consoleError =`${input}: command not found`;
+  }
+
+  const tmpOutput = consoleOutput || consoleError
+  tmpOutput && giveOutput(tmpOutput);
 }
 
 function REPL() {
