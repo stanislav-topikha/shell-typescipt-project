@@ -66,14 +66,15 @@ function giveOutput(input:string) {
 
 const isWord = (srt: string) => !!srt.trim();
 
+const isEncapsed = (str: string, encapser: `'` | `"`) => {
+    return str[0] === encapser && str[str.length - 1]
+};
+
 function processString(str: string) {
   const regexp = RegExp(
     /((?<=\\).{1})|('.+?')|("(?:\\\"|.)+?")|(\s+)|([^\s'"\\]+)/g
   );
-  const tmpWords = str.match(regexp) || [];
-  const isEncapsed = (str: string, encapser: `'` | `"`) => {
-    return str[0] === encapser && str[str.length - 1]
-  };
+  const  tmpWords = str.match(regexp)|| [];
 
   //remove encapsing quotes, normalize non word stings to single spaces
   return tmpWords.map((string) => {
@@ -86,13 +87,53 @@ function processString(str: string) {
       return string.slice(1, -1).replaceAll(/(?<!\\)\\(?=\\|")/g, '');
     }
 
-    return string.replaceAll(/\s+/g,' ');e
+    return string.replaceAll(/\s+/g,' ');
   }).filter(Boolean);
+}
+
+const REDIRECT_SIGN =  {
+  '>': '>',
+  '1>': '1>',
+} as const;
+
+function detectRedirect(
+  words: string[]
+): null|{
+  redirectIndex: number,
+  redirectSign: typeof REDIRECT_SIGN[keyof typeof REDIRECT_SIGN],
+  fileArgs?: string[]
+} {
+  let redirectIndex = null;
+  let redirectSign: null | typeof REDIRECT_SIGN[keyof typeof REDIRECT_SIGN]= null;
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+
+    if (word === '>') {
+      redirectSign = '>';
+      redirectIndex = i;
+    }
+
+    if (word === '1>') {
+      redirectSign = '1>';
+      redirectIndex = i;
+    }
+  }
+
+  return redirectIndex && redirectSign ? {redirectIndex, redirectSign} : null;
 }
 
 function processCommand(input: string) {
   let consoleOutput: null | string = null;
-  const rawInputWords = processString(input);
+  let rawInputWords = processString(input);
+  const redirect = detectRedirect(rawInputWords);
+
+  console.log(redirect);
+
+  if (redirect) {
+    redirect.fileArgs  = rawInputWords.splice(redirect.redirectIndex);
+  }
+
   const mainCommandIndex = rawInputWords.findIndex(isWord);
 
   if (mainCommandIndex < 0) {
