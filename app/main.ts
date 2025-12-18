@@ -129,7 +129,7 @@ function generateOutput(command: {
     switch (command.main) {
     case (COMMAND_ACTION.Exit): {
       rl.close();
-      return {output: COMMAND_ACTION.Exit};
+      return {};
     }
 
     case (COMMAND_ACTION.Echo): {
@@ -218,44 +218,40 @@ function processCommand(input: string) {
     leftoverWords: rawInputWords.slice(mainCommandIndex + 2).filter(isWord),
   };
 
+  let {
+    output: consoleOutput,
+    error: consoleError
+  } = generateOutput(command);
 
-  let {output: consoleOutput, error: consoleError} = generateOutput(command);
-
-  if (consoleOutput === COMMAND_ACTION.Exit) {
+  if (command.main === COMMAND_ACTION.Exit) {
+    //stops REPL
     return true;
   }
 
   if (redirect?.fileArgs && (consoleOutput || consoleError)) {
+    // if only error-> empty file
     redirectOutput(redirect.fileArgs, consoleOutput || '');
 
     consoleOutput = undefined;
   }
 
+  // change condition
   if (consoleError === 'Command not found') {
     consoleError =`${input}: command not found`;
   }
 
-  const tmpOutput = (()=>{
-    if (consoleOutput && !consoleError) {
-      return consoleOutput
-    }
+  if (!consoleError && !consoleOutput) {
+    return;
+  }
 
-    if(!consoleOutput && consoleError)
-    return consoleError;
-
-    if (consoleOutput && consoleError) {
-      return consoleError + consoleOutput;
-    }
-
-    return null;
-  })();
-
-  tmpOutput && giveOutput(tmpOutput);
+  giveOutput((consoleError??'') + (consoleOutput??''));
 }
 
 function REPL() {
   rl.question("$ ", function (input) {
-    if (processCommand(input)) {
+    const stop = Boolean(processCommand(input));
+
+    if (stop) {
       return;
     }
 
