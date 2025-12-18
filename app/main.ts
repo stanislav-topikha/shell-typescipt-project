@@ -230,14 +230,13 @@ function processCommand(input: string) {
     return true;
   }
 
-  if (redirect?.fileArgs && (consoleOutput || consoleError) && redirect.redirectSign !== '2>') {
-    // if only error-> empty file
+  if (redirect?.fileArgs && redirect.redirectSign !== '2>') {
     redirectOutput(redirect.fileArgs, consoleOutput || '');
     consoleOutput = null;
   }
 
-  if (redirect?.fileArgs && consoleError && redirect.redirectSign === '2>') {
-    redirectOutput(redirect.fileArgs, consoleError);
+  if (redirect?.fileArgs && redirect.redirectSign === '2>') {
+    redirectOutput(redirect.fileArgs, consoleError || '');
     consoleError = null;
   }
 
