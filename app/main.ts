@@ -221,8 +221,8 @@ function processCommand(input: string) {
   };
 
   let {
-    output: consoleOutput,
-    error: consoleError
+    output: consoleOutput = null,
+    error: consoleError = null
   } = generateOutput(command);
 
   if (command.main === COMMAND_ACTION.Exit) {
@@ -233,12 +233,12 @@ function processCommand(input: string) {
   if (redirect?.fileArgs && (consoleOutput || consoleError) && redirect.redirectSign !== '2>') {
     // if only error-> empty file
     redirectOutput(redirect.fileArgs, consoleOutput || '');
-
-    consoleOutput = undefined;
+    consoleOutput = null;
   }
 
   if (redirect?.fileArgs && consoleError && redirect.redirectSign === '2>') {
     redirectOutput(redirect.fileArgs, consoleError);
+    consoleError = null;
   }
 
   // change condition
@@ -249,6 +249,8 @@ function processCommand(input: string) {
   if (!consoleError && !consoleOutput) {
     return;
   }
+
+  console.log({consoleError, consoleOutput});
 
   giveOutput((consoleError??'') + (consoleOutput??''));
 }
