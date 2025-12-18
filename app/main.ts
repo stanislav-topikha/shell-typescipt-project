@@ -236,6 +236,10 @@ function redirectOutput(
         fileContent = fs.readFileSync(fileArgs).toString();
       } catch {}
 
+      if(fileContent && !fileContent.endsWith('\n')) {
+        fileContent += '\n';
+      }
+
       fs.writeFileSync(fileArgs, (fileContent??'') + (buffer.output??''));
       delete buffer.output;
 
