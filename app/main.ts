@@ -87,6 +87,7 @@ function processString(str: string) {
 const REDIRECT_SIGN =  {
   '>': '>',
   '1>': '1>',
+  '2>': '2>'
 } as const;
 
 function detectRedirect(
@@ -102,15 +103,16 @@ function detectRedirect(
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
 
-    if (word === '>') {
-      redirectSign = '>';
-      redirectIndex = i;
+    if (!(
+      REDIRECT_SIGN[">"] === word
+    ||REDIRECT_SIGN["1>"] === word
+    ||REDIRECT_SIGN["2>"] === word
+    )) {
+      continue;
     }
 
-    if (word === '1>') {
-      redirectSign = '1>';
-      redirectIndex = i;
-    }
+    redirectSign = word;
+    redirectIndex = i;
   }
 
   return (redirectIndex !== null) && redirectSign
@@ -228,11 +230,15 @@ function processCommand(input: string) {
     return true;
   }
 
-  if (redirect?.fileArgs && (consoleOutput || consoleError)) {
+  if (redirect?.fileArgs && (consoleOutput || consoleError) && redirect.redirectSign !== '2>') {
     // if only error-> empty file
     redirectOutput(redirect.fileArgs, consoleOutput || '');
 
     consoleOutput = undefined;
+  }
+
+  if (redirect?.fileArgs && consoleError && redirect.redirectSign === '2>') {
+    redirectOutput(redirect.fileArgs, consoleError);
   }
 
   // change condition
