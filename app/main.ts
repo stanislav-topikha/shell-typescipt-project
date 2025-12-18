@@ -91,6 +91,7 @@ const REDIRECT_SIGN =  {
   '2>': '2>',
   '>>': '>>',
   '1>>': '1>>'
+  '2>>': '2>>',
 } as const;
 
 function detectRedirect(
@@ -112,6 +113,7 @@ function detectRedirect(
     ||REDIRECT_SIGN["2>"] === word
     ||REDIRECT_SIGN[">>"] === word
     ||REDIRECT_SIGN["1>>"] === word
+    ||REDIRECT_SIGN['2>>'] === word
     )) {
       continue;
     }
@@ -230,7 +232,8 @@ function redirectOutput(
     }
 
     case ">>":
-    case "1>>": {
+    case '1>>':
+    case '2>>': {
       let fileContent;
       try {
         fileContent = fs.readFileSync(fileArgs).toString();
@@ -240,8 +243,13 @@ function redirectOutput(
         fileContent += '\n';
       }
 
-      fs.writeFileSync(fileArgs, (fileContent??'') + (buffer.output??''));
-      delete buffer.output;
+      fs.writeFileSync(
+        fileArgs,
+        (fileContent??'') + (
+          buffer[redirectSign !== '2>>' ? 'output' : 'error']??''
+        )
+      );
+      delete buffer[redirectSign !== '2>>' ? 'output' : 'error'];
 
       break;
     }
