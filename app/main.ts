@@ -15,6 +15,7 @@ const COMMAND_ACTION = {
   Type: 'type',
   PWD: 'pwd',
   CD:'cd',
+  NOT_FOUND: 'NOT_FOUND'
 } as const;
 
 function getExe(xFileName: string){
@@ -87,7 +88,9 @@ function processString(str: string) {
 const REDIRECT_SIGN =  {
   '>': '>',
   '1>': '1>',
-  '2>': '2>'
+  '2>': '2>',
+  '>>': '>>',
+  '1>>': '1>>'
 } as const;
 
 function detectRedirect(
@@ -107,6 +110,8 @@ function detectRedirect(
       REDIRECT_SIGN[">"] === word
     ||REDIRECT_SIGN["1>"] === word
     ||REDIRECT_SIGN["2>"] === word
+    ||REDIRECT_SIGN[">>"] === word
+    ||REDIRECT_SIGN["1>>"] === word
     )) {
       continue;
     }
@@ -124,6 +129,7 @@ function generateOutput(command: {
     main: string;
     leftover: string[];
     leftoverWords: string[];
+    raw: string,
 }): {
   output?: string,
   error?: string,
@@ -185,7 +191,8 @@ function generateOutput(command: {
       const exe = getExe(command.main);
 
       if (!exe) {
-        return {error: 'Command not found'};
+          // change condition
+        return {error: `${command.raw}: command not found`};
       }
 
       return runExe(exe.fileName, args);
@@ -193,8 +200,50 @@ function generateOutput(command: {
   }
 }
 
-function redirectOutput(file: string, output: string) {
-  fs.writeFileSync(file, output);
+function redirectOutput(
+  {redirectSign, fileArgs}: {
+    redirectIndex: number;
+    redirectSign: keyof typeof REDIRECT_SIGN;
+    fileArgs?: string | undefined;
+},
+  buffer: {
+    output?: string | undefined;
+    error?: string | undefined;
+}
+) {
+  if (!fileArgs) {
+    return buffer;
+  }
+
+  switch(redirectSign) {
+    case '>':
+    case '1>': {
+        fs.writeFileSync(fileArgs, buffer.output || '');
+        delete buffer.output;
+      break;
+    }
+
+    case '2>':{
+      fs.writeFileSync(fileArgs, buffer.error || '');
+      delete buffer.error;
+      break;
+    }
+
+    case ">>":
+    case "1>>": {
+      let fileContent;
+      try {
+        fileContent = fs.readFileSync(fileArgs).toString();
+      } catch {}
+
+      fs.writeFileSync(fileArgs, (fileContent??'') + (buffer.output??''));
+      delete buffer.output;
+
+      break;
+    }
+  }
+
+  return buffer;
 };
 
 //Main flow
@@ -218,38 +267,25 @@ function processCommand(input: string) {
     main: rawInputWords[mainCommandIndex],
     leftover: rawInputWords.slice(mainCommandIndex + 2),
     leftoverWords: rawInputWords.slice(mainCommandIndex + 2).filter(isWord),
+    raw: input,
   };
 
-  let {
-    output: consoleOutput = null,
-    error: consoleError = null
-  } = generateOutput(command);
+  let outputBuffer = generateOutput(command);
 
   if (command.main === COMMAND_ACTION.Exit) {
     //stops REPL
     return true;
   }
 
-  if (redirect?.fileArgs && redirect.redirectSign !== '2>') {
-    redirectOutput(redirect.fileArgs, consoleOutput || '');
-    consoleOutput = null;
+  if (redirect) {
+    outputBuffer = redirectOutput(redirect, outputBuffer);
   }
 
-  if (redirect?.fileArgs && redirect.redirectSign === '2>') {
-    redirectOutput(redirect.fileArgs, consoleError || '');
-    consoleError = null;
-  }
-
-  // change condition
-  if (consoleError === 'Command not found') {
-    consoleError =`${input}: command not found`;
-  }
-
-  if (!consoleError && !consoleOutput) {
+  if (!outputBuffer.error && !outputBuffer.output) {
     return;
   }
 
-  giveOutput((consoleError??'') + (consoleOutput??''));
+  giveOutput((outputBuffer.error??'') + (outputBuffer.output??''));
 }
 
 function REPL() {
