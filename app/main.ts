@@ -1,4 +1,4 @@
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
@@ -59,8 +59,8 @@ function giveOutput(input:string) {
 
 const isWord = (srt: string) => !!srt.trim();
 
-const isEncapsed = (str: string, encapser: `'` | `"`) => {
-    return str[0] === encapser && str[str.length - 1]
+const isEncapsed = (s: string, q: `'` | `"`) => {
+  return s.length >= 2 && s.startsWith(q) && s.endsWith(q);
 };
 
 function processString(str: string) {
@@ -113,7 +113,9 @@ function detectRedirect(
     }
   }
 
-  return redirectIndex && redirectSign ? {redirectIndex, redirectSign} : null;
+  return (redirectIndex !== null) && redirectSign
+    ? {redirectIndex, redirectSign}
+    : null;
 }
 
 function generateOutput(command: {
@@ -247,6 +249,7 @@ function processCommand(input: string) {
 
     return null;
   })();
+
   tmpOutput && giveOutput(tmpOutput);
 }
 
