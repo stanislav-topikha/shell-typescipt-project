@@ -250,8 +250,6 @@ function processCommand(input: string) {
     return;
   }
 
-  console.log({consoleError, consoleOutput});
-
   giveOutput((consoleError??'') + (consoleOutput??''));
 }
 
