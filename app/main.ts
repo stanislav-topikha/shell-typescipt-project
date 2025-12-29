@@ -17,9 +17,13 @@ const rl = createInterface({
   prompt: '$ ',
   completer: (userInput: string) => {
     let completions = Object.values(COMMAND_ACTION);
-    completions = completions.filter(str => str.startsWith(userInput));
+    completions = completions
+    .filter(str => str.startsWith(userInput))
 
-    return [completions, userInput];
+    return [
+      completions.length === 1 ? [completions[0] + ' '] : completions,
+      userInput,
+    ];
   }
 });
 
