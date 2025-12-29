@@ -3,20 +3,25 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
 
-
-const rl = createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
 const COMMAND_ACTION = {
   Exit: 'exit',
   Echo: 'echo',
   Type: 'type',
   PWD: 'pwd',
   CD:'cd',
-  NOT_FOUND: 'NOT_FOUND'
 } as const;
+
+const rl = createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  prompt: '$ ',
+  completer: (userInput: string) => {
+    let completions = Object.values(COMMAND_ACTION);
+    completions = completions.filter(str => str.startsWith(userInput));
+
+    return [completions, userInput];
+  }
+});
 
 function getExe(xFileName: string){
   const envPath = process.env.PATH ||'';
@@ -93,6 +98,7 @@ const REDIRECT_SIGN =  {
   '1>>': '1>>',
   '2>>': '2>>',
 } as const;
+
 
 function detectRedirect(
   words: string[]
@@ -300,16 +306,12 @@ function processCommand(input: string) {
   giveOutput((outputBuffer.error??'') + (outputBuffer.output??''));
 }
 
-function REPL() {
-  rl.question("$ ", function (input) {
+  rl.prompt();
+  rl.on('line', function (input) {
     const stop = Boolean(processCommand(input));
+    rl.prompt();
 
     if (stop) {
-      return;
+     process.exit();
     }
-
-    REPL();
   });
-};
-
-REPL();
