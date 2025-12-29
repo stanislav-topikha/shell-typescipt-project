@@ -54,6 +54,47 @@ const rl = createInterface({
       return [[completions[0] + ' '], userInput];
     }
 
+    const partialCompletion = (() => {
+      let result = null;
+
+      if (hasNoCompletions || hasSingleCompletion) {
+        return result;
+      }
+
+      const smallestCompletion = completions[0];
+
+      for (let i = 1; i < completions.length; i++) {
+        const completion = completions[i];
+        if (smallestCompletion.length > completion.length) {
+          return result;
+        }
+      }
+
+      for (let i = normalizedInput.length; i < smallestCompletion.length; i++) {
+        const smallestCompletionChar = smallestCompletion[i];
+
+        for (let k = 1; k < completions.length; k++) {
+          const completion = completions[k];
+          const completionChar = completion[i];
+
+          if (smallestCompletionChar !== completionChar) {
+            return result;
+          }
+
+          if (k === completions.length - 1) {
+            result ??= '';
+            result += completionChar;
+          }
+        }
+      }
+
+      return result;
+    })();
+
+    if (partialCompletion) {
+      return [[normalizedInput + partialCompletion], normalizedInput];
+    }
+
     if (!userInput.endsWith('\x07')) {
       return [[normalizedInput + '\x07'], normalizedInput];
     }
