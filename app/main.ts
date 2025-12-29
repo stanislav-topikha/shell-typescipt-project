@@ -11,14 +11,32 @@ const COMMAND_ACTION = {
   CD:'cd',
 } as const;
 
+function getAllExes() {
+  const exes: string[] = [];
+  const possibleExesPaths = (process.env.PATH ||'').split(path.delimiter);
+
+  for (const exeFolder of possibleExesPaths) {
+    try {
+      for (const exeName of fs.readdirSync(exeFolder)) {
+        try {
+          fs.accessSync(exeFolder + '/' + exeName, fs.constants.X_OK);
+          exes.push(exeName);
+        } catch { }
+      }
+    } catch { }
+  }
+  return exes;
+}
+
+const exeNames = getAllExes();
+const uniqExeNames = Array.from(new Set([...exeNames, ...Object.values(COMMAND_ACTION)]));
+
 const rl = createInterface({
   input: process.stdin,
   output: process.stdout,
   prompt: '$ ',
   completer: (userInput: string) => {
-    const completions = Object.values(
-      COMMAND_ACTION
-    ).filter(str => str.startsWith(userInput))
+    const completions = uniqExeNames.filter(str => str.startsWith(userInput));
 
     if (!completions.length && !userInput.endsWith('\x07')) {
       return [
