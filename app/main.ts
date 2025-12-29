@@ -16,9 +16,9 @@ const rl = createInterface({
   output: process.stdout,
   prompt: '$ ',
   completer: (userInput: string) => {
-    let completions = Object.values(COMMAND_ACTION);
-    completions = completions
-    .filter(str => str.startsWith(userInput))
+    const completions = Object.values(
+      COMMAND_ACTION
+    ).filter(str => str.startsWith(userInput))
 
     return [
       completions.length === 1 ? [completions[0] + ' '] : completions,
@@ -295,8 +295,7 @@ function processCommand(input: string) {
   let outputBuffer = generateOutput(command);
 
   if (command.main === COMMAND_ACTION.Exit) {
-    //stops REPL
-    return true;
+    throw "EXIT";
   }
 
   if (redirect) {
@@ -312,10 +311,10 @@ function processCommand(input: string) {
 
   rl.prompt();
   rl.on('line', function (input) {
-    const stop = Boolean(processCommand(input));
-
-    if (stop) {
-     process.exit();
+    try{
+      processCommand(input);
+    } catch {
+      process.exit();
     }
 
     rl.prompt();
