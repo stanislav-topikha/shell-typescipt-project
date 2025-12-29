@@ -40,7 +40,9 @@ const rl = createInterface({
   prompt: PROMPT_SIGN,
   completer: (userInput: string) => {
     const normalizedInput = userInput.replaceAll('\x07', '');
-    const completions = uniqExeNames.filter(str => str.startsWith(normalizedInput));
+    const completions = uniqExeNames
+      .filter(str => str.startsWith(normalizedInput))
+      .sort();
     const hasSingleCompletion = completions.length === 1;
     const hasNoCompletions = completions.length === 0;
 
