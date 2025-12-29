@@ -20,6 +20,13 @@ const rl = createInterface({
       COMMAND_ACTION
     ).filter(str => str.startsWith(userInput))
 
+    if (!completions.length && !userInput.endsWith('\x07')) {
+      return [
+        [userInput + '\x07'],
+         userInput
+      ];
+    }
+
     return [
       completions.length === 1 ? [completions[0] + ' '] : completions,
       userInput,
