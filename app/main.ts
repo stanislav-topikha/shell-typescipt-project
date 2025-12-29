@@ -3,6 +3,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
 
+let processInput = true;
+const PROMPT_SIGN = '$ ';
+
 const COMMAND_ACTION = {
   Exit: 'exit',
   Echo: 'echo',
@@ -34,21 +37,35 @@ const uniqExeNames = Array.from(new Set([...exeNames, ...Object.values(COMMAND_A
 const rl = createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: '$ ',
+  prompt: PROMPT_SIGN,
   completer: (userInput: string) => {
-    const completions = uniqExeNames.filter(str => str.startsWith(userInput));
+    const normalizedInput = userInput.replaceAll('\x07', '');
+    const completions = uniqExeNames.filter(str => str.startsWith(normalizedInput));
+    const hasSingleCompletion = completions.length === 1;
+    const hasNoCompletions = completions.length === 0;
 
-    if (!completions.length && !userInput.endsWith('\x07')) {
-      return [
-        [userInput + '\x07'],
-         userInput
-      ];
+    if (hasNoCompletions) {
+      return [[normalizedInput + '\x07'], normalizedInput];
     }
 
-    return [
-      completions.length === 1 ? [completions[0] + ' '] : completions,
-      userInput,
-    ];
+    if (hasSingleCompletion) {
+      return [[completions[0] + ' '], userInput];
+    }
+
+    if (!userInput.endsWith('\x07')) {
+      return [[normalizedInput + '\x07'], normalizedInput];
+    }
+
+    processInput = false;
+    rl.setPrompt('');
+    rl.write('', {name: 'enter'});
+    rl.write(completions.join('  '));
+    rl.setPrompt(PROMPT_SIGN);
+    rl.write('', {name: 'enter'});
+    rl.write(normalizedInput);
+    processInput = true;
+
+    return ''; // prevent error
   }
 });
 
@@ -337,7 +354,9 @@ function processCommand(input: string) {
   rl.prompt();
   rl.on('line', function (input) {
     try{
-      processCommand(input);
+      if (processInput) {
+        processCommand(input);
+      }
     } catch {
       process.exit();
     }
