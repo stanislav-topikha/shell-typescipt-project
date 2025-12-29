@@ -313,9 +313,10 @@ function processCommand(input: string) {
   rl.prompt();
   rl.on('line', function (input) {
     const stop = Boolean(processCommand(input));
-    rl.prompt();
 
     if (stop) {
      process.exit();
     }
+
+    rl.prompt();
   });
