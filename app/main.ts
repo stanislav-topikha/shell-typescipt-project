@@ -2,6 +2,8 @@ import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
+import Stream, { Readable, Writable } from "node:stream";
+import { buffer } from "node:stream/consumers";
 
 let processInput = true;
 const PROMPT_SIGN = '$ ';
@@ -370,13 +372,33 @@ async function processCommand(input: string) {
   if (pipelineCommands) {
     processInput = false;
 
+    function getUniversalBuffer({name, args}: {name: string, args: string[]}) {
+      const {stdout, stdin} = (() => {
+        const builtin = generateBuiltin(name, args);
+
+        if (builtin) {
+          return {
+            stdout: new Readable({read: function() {
+                this.push((builtin.output??''));
+                this.push(null);
+            }}),
+            stdin: new Writable({write: function(){}}),
+          };
+        }
+
+        return spawn(name, args);
+      })();
+
+      return {stdout, stdin};
+    }
+
     await (async function pipeCommands(commands: {name: string, args: string[]}[]) {
       let commandA = commands[0];
-      let bufferA = spawn(commandA.name, commandA.args);
+      let bufferA = getUniversalBuffer(commandA);
 
       for (let i = 1; i < commands.length; i++) {
         let commandB = commands[i];
-        let bufferB = spawn(commandB.name, commandB.args);
+        let bufferB = getUniversalBuffer(commandB);
 
         bufferA.stdout.pipe(bufferB.stdin);
 
