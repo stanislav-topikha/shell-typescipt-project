@@ -1,12 +1,13 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
+import { arrayBuffer } from "node:stream/consumers";
 
 let processInput = true;
 const PROMPT_SIGN = '$ ';
 
-const COMMAND_ACTION = {
+const COMMAND_BUILTIN = {
   Exit: 'exit',
   Echo: 'echo',
   Type: 'type',
@@ -32,7 +33,7 @@ function getAllExes() {
 }
 
 const exeNames = getAllExes();
-const uniqExeNames = Array.from(new Set([...exeNames, ...Object.values(COMMAND_ACTION)]));
+const uniqExeNames = Array.from(new Set([...exeNames, ...Object.values(COMMAND_BUILTIN)]));
 
 const rl = createInterface({
   input: process.stdin,
@@ -45,14 +46,6 @@ const rl = createInterface({
       .sort();
     const hasSingleCompletion = completions.length === 1;
     const hasNoCompletions = completions.length === 0;
-
-    if (hasNoCompletions) {
-      return [[normalizedInput + '\x07'], normalizedInput];
-    }
-
-    if (hasSingleCompletion) {
-      return [[completions[0] + ' '], userInput];
-    }
 
     const partialCompletion = (() => {
       let result = null;
@@ -90,6 +83,14 @@ const rl = createInterface({
 
       return result;
     })();
+
+    if (hasNoCompletions) {
+      return [[normalizedInput + '\x07'], normalizedInput];
+    }
+
+    if (hasSingleCompletion) {
+      return [[completions[0] + ' '], userInput];
+    }
 
     if (partialCompletion) {
       return [[normalizedInput + partialCompletion], normalizedInput];
@@ -149,7 +150,7 @@ function giveOutput(input:string) {
     ? input
     : `${input}\n`;
 
-  process.stdout.write(output);
+    process.stdout.write(output);
 }
 
 const isWord = (srt: string) => !!srt.trim();
@@ -202,17 +203,11 @@ function detectRedirect(
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
 
-    if (!(
-      REDIRECT_SIGN[">"] === word
-    ||REDIRECT_SIGN["1>"] === word
-    ||REDIRECT_SIGN["2>"] === word
-    ||REDIRECT_SIGN[">>"] === word
-    ||REDIRECT_SIGN["1>>"] === word
-    ||REDIRECT_SIGN['2>>'] === word
-    )) {
+    if (!(Object.values(REDIRECT_SIGN).some(s => s === word))) {
       continue;
     }
 
+    // @ts-expect-error
     redirectSign = word;
     redirectIndex = i;
   }
@@ -232,23 +227,23 @@ function generateOutput(command: {
   error?: string,
 } {
     switch (command.main) {
-    case (COMMAND_ACTION.Exit): {
+    case (COMMAND_BUILTIN.Exit): {
       rl.close();
       return {};
     }
 
-    case (COMMAND_ACTION.Echo): {
+    case (COMMAND_BUILTIN.Echo): {
       return {output: `${command.leftover.join('')}`};
     }
 
-    case (COMMAND_ACTION.Type): {
+    case (COMMAND_BUILTIN.Type): {
         const secondCommand = command.leftoverWords[0];
 
         if (!secondCommand) {
           return {};
         }
 
-        const rawCommandsPool = Object.values(COMMAND_ACTION);
+        const rawCommandsPool = Object.values(COMMAND_BUILTIN);
 
         if (rawCommandsPool.some(str => str === secondCommand)) {
           return {output: `${secondCommand} is a shell builtin`};
@@ -263,11 +258,11 @@ function generateOutput(command: {
         return {error: `${secondCommand} not found`};
     }
 
-    case (COMMAND_ACTION.PWD): {
+    case (COMMAND_BUILTIN.PWD): {
       return {output: process.cwd()};
     }
 
-    case (COMMAND_ACTION.CD): {
+    case (COMMAND_BUILTIN.CD): {
       const tmpPath = command.leftoverWords[0];
 
       try {
@@ -354,9 +349,58 @@ function redirectOutput(
 };
 
 //Main flow
-function processCommand(input: string) {
+async function processCommand(input: string) {
   let rawInputWords = processString(input);
   const redirect = detectRedirect(rawInputWords);
+
+  const pipeline = (() => {
+    const words = rawInputWords.filter(isWord);
+    const pipeIndex = words.indexOf('|');
+
+    if (pipeIndex === -1) {
+      return null;
+    }
+
+    const leftPart = words.slice(0, pipeIndex);
+    const rightPart = words.slice(pipeIndex + 1);
+
+    const commandA = {
+      exeName: leftPart[0],
+      args: leftPart.slice(1),
+    };
+
+    const commandB = {
+      exeName: rightPart[0],
+      args: rightPart.slice(1),
+    };
+
+    return [commandA, commandB];
+  })();
+
+  if (pipeline) {
+    await (async function pipeCommands(
+      commandA: {
+      exeName: string,
+      args: string[]
+    }, commandB: {
+      exeName: string,
+      args: string[]
+    }
+    ) {
+      const bufferA = spawn(commandA.exeName, commandA.args);
+      const bufferB = spawn(commandB.exeName, commandB.args, {stdio: [bufferA.stdout]});
+
+      await new Promise((resolve) => {
+        bufferB.stdout?.on('data', (data) => {
+          giveOutput(data.toString());
+        });
+
+        bufferB.stdout?.on('close', () => resolve(null));
+    });
+    })(pipeline[0], pipeline[1]);
+
+    return;
+  }
 
   if (redirect) {
     redirect.fileArgs  = rawInputWords
@@ -379,7 +423,7 @@ function processCommand(input: string) {
 
   let outputBuffer = generateOutput(command);
 
-  if (command.main === COMMAND_ACTION.Exit) {
+  if (command.main === COMMAND_BUILTIN.Exit) {
     throw "EXIT";
   }
 
@@ -395,10 +439,10 @@ function processCommand(input: string) {
 }
 
   rl.prompt();
-  rl.on('line', function (input) {
+  rl.on('line', async function (input) {
     try{
       if (processInput) {
-        processCommand(input);
+        await processCommand(input);
       }
     } catch {
       process.exit();
