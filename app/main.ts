@@ -152,8 +152,7 @@ function giveOutput(input:string) {
 
     processInput = false;
     rl.setPrompt('');
-    rl.write('', {name: 'enter'});
-    rl.write(output);
+    process.stdout.write(output);
     rl.setPrompt(PROMPT_SIGN);
     processInput = true;
 }
