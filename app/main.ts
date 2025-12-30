@@ -377,13 +377,32 @@ async function processCommand(input: string) {
         const builtin = generateBuiltin(name, args);
 
         if (builtin) {
-          return {
-            stdout: new Readable({read: function() {
-                this.push((builtin.output??''));
-                this.push(null);
-            }}),
-            stdin: new Writable({write: function(){}}),
-          };
+          const chunks: Buffer[] = [];
+
+          const stdout = new Readable({read: function() {
+            this.push((builtin.output??''));
+            this.push(null);
+          }});
+
+          const stdin = new Writable({
+            write(chunk, _enc, cb){
+              chunks.push(Buffer.from(chunk));
+              cb();
+              },
+
+            final(callback) {
+              const stdinStr = Buffer.concat(chunks).toString("utf8");
+              const result = generateBuiltin(name, processString(stdinStr));
+
+              if (result) {
+                stdout.push(result.output);
+              }
+
+              callback();
+            },
+          });
+
+          return { stdout, stdin };
         }
 
         return spawn(name, args);
