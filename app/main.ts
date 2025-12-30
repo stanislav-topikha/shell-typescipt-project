@@ -388,10 +388,10 @@ async function processCommand(input: string) {
     }
     ) {
       const bufferA = spawn(commandA.exeName, commandA.args);
-      const bufferB = spawn(commandB.exeName, commandB.args, {stdio: [bufferA.stdout]});
+      const bufferB = spawn(commandB.exeName, commandB.args);
+      bufferA.stdout.pipe(bufferB.stdin);
 
       await new Promise((resolve) => {
-        process.stdout.write('');
         bufferB.stdout?.on('data', (data) => {
           giveOutput(data.toString());
           resolve(null);
@@ -444,8 +444,8 @@ async function processCommand(input: string) {
       if (processInput) {
         await processCommand(input);
       }
-    } catch {
-      process.exit();
+    } catch (e) {
+      console.log(e);
     }
 
     rl.prompt();
