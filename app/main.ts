@@ -101,13 +101,11 @@ const rl = createInterface({
     }
 
     processInput = false;
-    rl.setPrompt('');
     rl.write('', {name: 'enter'});
-    rl.write(completions.join('  '));
-    rl.setPrompt(PROMPT_SIGN);
-    rl.write('', {name: 'enter'});
-    rl.write(normalizedInput);
+    giveOutput(completions.join('  '));
     processInput = true;
+    rl.prompt();
+    rl.write(normalizedInput);
 
     return ''; // prevent error
   }
@@ -150,11 +148,7 @@ function giveOutput(input:string) {
     ? input
     : `${input}\n`;
 
-    processInput = false;
-    rl.setPrompt('');
-    process.stdout.write(output);
-    rl.setPrompt(PROMPT_SIGN);
-    processInput = true;
+    process.stdout.write(output)
 }
 
 const isWord = (srt: string) => !!srt.trim();
@@ -382,6 +376,8 @@ async function processCommand(input: string) {
   })();
 
   if (pipeline) {
+    processInput = false;
+
     await (async function pipeCommands(
       commandA: {
       exeName: string,
@@ -403,6 +399,7 @@ async function processCommand(input: string) {
     });
     })(pipeline[0], pipeline[1]);
 
+    processInput = true;
     return;
   }
 
@@ -444,10 +441,12 @@ async function processCommand(input: string) {
 
   rl.prompt();
   rl.on('line', async function (input) {
+    if (!processInput) {
+      return;
+    }
+
     try{
-      if (processInput) {
-        await processCommand(input);
-      }
+      await processCommand(input);
     } catch {
       process.exit();
     }
