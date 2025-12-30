@@ -134,9 +134,12 @@ function getExe(fileName: string){
 function getExeOutput(exeName: string, args: string[]) {
   const buffer = spawnSync(exeName, args);
 
+  const stdout =  buffer.stdout.toString();
+  const stderr = buffer.stderr.toString();
+
   return {
-    output: buffer.stdout.toString(),
-    error: buffer.stderr.toString()
+    output:stdout,
+    error: stderr,
   };
 }
 
@@ -212,26 +215,21 @@ function detectRedirect(
     : null;
 }
 
-function generateBuiltin(command: {
-    main: string;
-    leftover: string[];
-    leftoverWords: string[];
-    raw: string,
-}): {
+function generateBuiltin(command: string, args: string[]): {
   output?: string,
   error?: string,
 } | null {
-    switch (command.main) {
+    switch (command) {
     case (COMMAND_BUILTIN.Exit): {
       throw "EXIT";
     }
 
     case (COMMAND_BUILTIN.Echo): {
-      return {output: `${command.leftover.join('')}`};
+      return {output: `${args.join('')}`};
     }
 
     case (COMMAND_BUILTIN.Type): {
-        const secondCommand = command.leftoverWords[0];
+        const secondCommand = args.filter(isWord)[0];
 
         if (!secondCommand) {
           return {};
@@ -257,7 +255,7 @@ function generateBuiltin(command: {
     }
 
     case (COMMAND_BUILTIN.CD): {
-      const tmpPath = command.leftoverWords[0];
+      const tmpPath = args.filter(isWord)[0];
 
       try {
         const homePath = process.env['HOME'];
@@ -333,59 +331,69 @@ function redirectOutput(
   return buffer;
 };
 
-//Main flow
 async function processCommand(input: string) {
   let rawInputWords = processString(input);
   const redirect = detectRedirect(rawInputWords);
 
-  const pipeline = (() => {
+  const pipelineCommands = (() => {
     const words = rawInputWords.filter(isWord);
-    const pipeIndex = words.indexOf('|');
+    const commands = [];
 
-    if (pipeIndex === -1) {
+    for (let i = 0, k = 0; i < words.length; i++) {
+      const word = words[i];
+
+      if (word === '|') {
+        const command = words.slice(k, i);
+        commands.push({
+          name: command[0],
+          args: command.slice(1),
+        });
+        k = i + 1;
+      }
+
+      if (i === words.length - 1 && commands.length) {
+        const command = words.slice(k);
+        commands.push({
+          name: command[0],
+          args: command.slice(1),
+        });
+      }
+    }
+
+    if (commands.length < 2) {
       return null;
     }
 
-    const leftPart = words.slice(0, pipeIndex);
-    const rightPart = words.slice(pipeIndex + 1);
-
-    const commandA = {
-      exeName: leftPart[0],
-      args: leftPart.slice(1),
-    };
-
-    const commandB = {
-      exeName: rightPart[0],
-      args: rightPart.slice(1),
-    };
-
-    return [commandA, commandB];
+    return commands;
   })();
 
-  if (pipeline) {
+  if (pipelineCommands) {
     processInput = false;
 
-    await (async function pipeCommands(
-      commandA: {
-      exeName: string,
-      args: string[]
-    }, commandB: {
-      exeName: string,
-      args: string[]
-    }
-    ) {
-      const bufferA = spawn(commandA.exeName, commandA.args);
-      const bufferB = spawn(commandB.exeName, commandB.args);
-      bufferA.stdout.pipe(bufferB.stdin);
+    await (async function pipeCommands(commands: {name: string, args: string[]}[]) {
+      let commandA = commands[0];
+      let bufferA = spawn(commandA.name, commandA.args);
 
-      await new Promise((resolve) => {
-        bufferB.stdout?.on('data', (data) => {
-          giveOutput(data.toString());
-        });
+      for (let i = 1; i < commands.length; i++) {
+        let commandB = commands[i];
+        let bufferB = spawn(commandB.name, commandB.args);
 
-        bufferB.stdout?.on('close', () => resolve(null));
-    });
-    })(pipeline[0], pipeline[1]);
+        bufferA.stdout.pipe(bufferB.stdin);
+
+        if (i === commands.length - 1) {
+            await new Promise((resolve) => {
+            bufferB.stdout?.on('data', (data) => {
+              giveOutput(data.toString());
+            });
+
+            bufferB.stdout?.on('close', () => resolve(null));
+          });
+          break;
+        }
+
+        [commandA, bufferA] = [commandB, bufferB];
+      }
+    })(pipelineCommands);
 
     processInput = true;
     return;
@@ -405,22 +413,19 @@ async function processCommand(input: string) {
 
   const command = {
     main: rawInputWords[mainCommandIndex],
-    leftover: rawInputWords.slice(mainCommandIndex + 2),
-    leftoverWords: rawInputWords.slice(mainCommandIndex + 2).filter(isWord),
-    raw: input,
+    args: rawInputWords.slice(mainCommandIndex + 2),
   };
 
-  let output = generateBuiltin(command);
+  let output = generateBuiltin(command.main, command.args);
 
   output ??= (()=>{
-    const args = command.leftoverWords;
     const exe = getExe(command.main);
 
     if (!exe) {
-      return {error: `${command.raw}: command not found`};
+      return {error: `${input}: command not found`};
     }
 
-    return getExeOutput(exe.fileName, args);
+    return getExeOutput(exe.fileName, command.args.filter(isWord));
   })();
 
   if (redirect) {
