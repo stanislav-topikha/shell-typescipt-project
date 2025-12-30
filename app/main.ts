@@ -150,7 +150,12 @@ function giveOutput(input:string) {
     ? input
     : `${input}\n`;
 
-    process.stdout.write(output);
+    processInput = false;
+    rl.setPrompt('');
+    rl.write('', {name: 'enter'});
+    rl.write(output);
+    rl.setPrompt(PROMPT_SIGN);
+    processInput = true;
 }
 
 const isWord = (srt: string) => !!srt.trim();
@@ -393,7 +398,7 @@ async function processCommand(input: string) {
 
       await new Promise((resolve) => {
         bufferB.stdout?.on('data', (data) => {
-          console.log(data.toString());
+          giveOutput(data.toString());
           resolve(null);
         });
     });
