@@ -2,7 +2,6 @@ import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
-import { arrayBuffer } from "node:stream/consumers";
 
 let processInput = true;
 const PROMPT_SIGN = '$ ';
@@ -111,18 +110,18 @@ const rl = createInterface({
   }
 });
 
-function getExe(xFileName: string){
+function getExe(fileName: string){
   const envPath = process.env.PATH ||'';
   const pathArr = envPath.split(path.delimiter);
 
   for (const tmpPath of pathArr) {
     try {
-      const filePath = path.join(tmpPath, xFileName);
+      const filePath = path.join(tmpPath, fileName);
 
       fs.accessSync(filePath, fs.constants.X_OK);
 
       return {
-        fileName: xFileName,
+        fileName,
         filePath,
       };
 
@@ -132,10 +131,8 @@ function getExe(xFileName: string){
   return null;
 }
 
-function runExe(exeName: string, args: string[]) {
-  const buffer = args.length
-    ? spawnSync(exeName, args)
-    : spawnSync(exeName);
+function getExeOutput(exeName: string, args: string[]) {
+  const buffer = spawnSync(exeName, args);
 
   return {
     output: buffer.stdout.toString(),
@@ -148,7 +145,7 @@ function giveOutput(input:string) {
     ? input
     : `${input}\n`;
 
-    process.stdout.write(output)
+    process.stdout.write(output);
 }
 
 const isWord = (srt: string) => !!srt.trim();
@@ -215,7 +212,7 @@ function detectRedirect(
     : null;
 }
 
-function generateOutput(command: {
+function generateBuiltin(command: {
     main: string;
     leftover: string[];
     leftoverWords: string[];
@@ -223,11 +220,10 @@ function generateOutput(command: {
 }): {
   output?: string,
   error?: string,
-} {
+} | null {
     switch (command.main) {
     case (COMMAND_BUILTIN.Exit): {
-      rl.close();
-      return {};
+      throw "EXIT";
     }
 
     case (COMMAND_BUILTIN.Echo): {
@@ -275,17 +271,8 @@ function generateOutput(command: {
       return {};
     }
 
-
     default: {
-      const args = command.leftoverWords;
-      const exe = getExe(command.main);
-
-      if (!exe) {
-          // change condition
-        return {error: `${command.raw}: command not found`};
-      }
-
-      return runExe(exe.fileName, args);
+      return null;
     }
   }
 }
@@ -423,21 +410,28 @@ async function processCommand(input: string) {
     raw: input,
   };
 
-  let outputBuffer = generateOutput(command);
+  let output = generateBuiltin(command);
 
-  if (command.main === COMMAND_BUILTIN.Exit) {
-    throw "EXIT";
-  }
+  output ??= (()=>{
+    const args = command.leftoverWords;
+    const exe = getExe(command.main);
+
+    if (!exe) {
+      return {error: `${command.raw}: command not found`};
+    }
+
+    return getExeOutput(exe.fileName, args);
+  })();
 
   if (redirect) {
-    outputBuffer = redirectOutput(redirect, outputBuffer);
+    output = redirectOutput(redirect, output);
   }
 
-  if (!outputBuffer.error && !outputBuffer.output) {
+  if (!output.error && !output.output) {
     return;
   }
 
-  giveOutput((outputBuffer.error??'') + (outputBuffer.output??''));
+  giveOutput((output.error??'') + (output.output??''));
 }
 
   rl.prompt();
