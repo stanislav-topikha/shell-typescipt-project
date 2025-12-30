@@ -391,6 +391,7 @@ async function processCommand(input: string) {
       const bufferB = spawn(commandB.exeName, commandB.args, {stdio: [bufferA.stdout]});
 
       await new Promise((resolve) => {
+        process.stdout.write('');
         bufferB.stdout?.on('data', (data) => {
           giveOutput(data.toString());
           resolve(null);
