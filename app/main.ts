@@ -440,12 +440,14 @@ async function processCommand(input: string) {
 
   rl.prompt();
   rl.on('line', async function (input) {
+    rl.setPrompt('');
     try{
       if (processInput) {
         await processCommand(input);
+        rl.setPrompt(PROMPT_SIGN)
       }
-    } catch (e) {
-      console.log(e);
+    } catch {
+      process.exit();
     }
 
     rl.prompt();
