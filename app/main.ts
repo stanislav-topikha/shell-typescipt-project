@@ -227,7 +227,7 @@ function generateBuiltin(command: string, args: string[]): {
     }
 
     case (COMMAND_BUILTIN.Echo): {
-      return {output: `${args.join('')}`};
+      return {output: `${args.join('')}\n`};
     }
 
     case (COMMAND_BUILTIN.Type): {
@@ -253,7 +253,7 @@ function generateBuiltin(command: string, args: string[]): {
     }
 
     case (COMMAND_BUILTIN.PWD): {
-      return {output: process.cwd()};
+      return {output: process.cwd() + '\n'};
     }
 
     case (COMMAND_BUILTIN.CD): {
