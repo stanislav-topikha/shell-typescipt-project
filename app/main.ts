@@ -394,8 +394,9 @@ async function processCommand(input: string) {
       await new Promise((resolve) => {
         bufferB.stdout?.on('data', (data) => {
           giveOutput(data.toString());
-          resolve(null);
         });
+
+        bufferB.stdout?.on('close', () => resolve(null));
     });
     })(pipeline[0], pipeline[1]);
 
