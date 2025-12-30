@@ -393,7 +393,7 @@ async function processCommand(input: string) {
 
       await new Promise((resolve) => {
         bufferB.stdout?.on('data', (data) => {
-          giveOutput(data.toString());
+          console.log(data.toString());
           resolve(null);
         });
     });
@@ -442,9 +442,7 @@ async function processCommand(input: string) {
   rl.on('line', async function (input) {
     try{
       if (processInput) {
-        rl.setPrompt('');
         await processCommand(input);
-        rl.setPrompt(PROMPT_SIGN);
       }
     } catch {
       process.exit();
