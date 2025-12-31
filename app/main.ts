@@ -3,7 +3,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createInterface } from "node:readline";
 import Stream, { Readable, Writable } from "node:stream";
-import { buffer } from "node:stream/consumers";
 
 let processInput = true;
 const PROMPT_SIGN = '$ ';
@@ -14,7 +13,10 @@ const COMMAND_BUILTIN = {
   Type: 'type',
   PWD: 'pwd',
   CD:'cd',
+  HISTORY: 'history',
 } as const;
+
+let commandsHistory: string[] = [];
 
 function getAllExes() {
   const exes: string[] = [];
@@ -271,6 +273,10 @@ function generateBuiltin(command: string, args: string[]): {
       return {};
     }
 
+    case (COMMAND_BUILTIN.HISTORY): {
+      return {output: commandsHistory.reverse().join('\n')};
+    }
+
     default: {
       return null;
     }
@@ -481,6 +487,10 @@ async function processCommand(input: string) {
 }
 
   rl.prompt();
+  rl.on('history', (history) => {
+     commandsHistory = history;
+  });
+
   rl.on('line', async function (input) {
     if (!processInput) {
       return;
