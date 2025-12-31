@@ -274,7 +274,12 @@ function generateBuiltin(command: string, args: string[]): {
     }
 
     case (COMMAND_BUILTIN.HISTORY): {
-      return {output: commandsHistory.reverse().join('\n')};
+      return {
+        output: commandsHistory
+          .reverse()
+          .map((s, i) => `${ i + 1}  ${s}`)
+          .join('\n')
+      };
     }
 
     default: {
