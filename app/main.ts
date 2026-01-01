@@ -277,8 +277,11 @@ function generateBuiltin(command: string, args: string[]): {
       const argWords = args.filter(isWord);
       const flag  = argWords[0];
       const shouldRead = flag === '-r';
-      const shouldLimit = Number.isInteger(+flag) && !shouldRead;
+      const shouldWrite = flag === '-w' && !shouldRead;
+      const shouldLimit = Number.isInteger(+flag) && !shouldWrite;
 
+
+      //history -w <path_to_history_file>
       if (shouldRead) {
         const filePath = argWords[1];
 
@@ -291,6 +294,15 @@ function generateBuiltin(command: string, args: string[]): {
 
           commandsHistory.push(...fileHistory);
 
+          return {};
+        } catch {}
+      }
+
+      if (shouldWrite) {
+        const filePath = argWords[1];
+
+        try {
+          fs.writeFileSync(filePath, commandsHistory.join('\n')+'\n');
           return {};
         } catch {}
       }
