@@ -120,12 +120,10 @@ const rl = createInterface({
       return;
     }
     try {
-      commandsHistory.push(
-        ...fs.readFileSync(filePath)
+      commandsHistory = fs.readFileSync(filePath)
           .toString()
           .split('\n')
-          .slice(0, -1)
-      );
+          .slice(0, -1);
 
       return commandsHistory;
     }catch{}
