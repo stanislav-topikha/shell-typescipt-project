@@ -313,7 +313,9 @@ function generateBuiltin(command: string, args: string[]): {
             filePath,
             [...fileHistory, ...commandsHistory].join('\n')+'\n'
           );
-          }
+          } catch{}
+
+          return {};
         }
       }
 
