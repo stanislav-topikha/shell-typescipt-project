@@ -16,7 +16,22 @@ const COMMAND_BUILTIN = {
   HISTORY: 'history',
 } as const;
 
-let commandsHistory: string[] = [];
+let commandsHistory: string[] = (()=>{
+    const filePath = process.env.HISTFILE;
+
+    if (!filePath) {
+      return [];
+    }
+
+    try {
+    return fs.readFileSync(filePath)
+          .toString()
+          .split('\n')
+          .slice(0, -1);
+    }catch{}
+
+    return [];
+  })();
 let historyLastAppend = 0;
 
 function getAllExes() {
@@ -113,21 +128,6 @@ const rl = createInterface({
 
     return ''; // prevent error
   },
-  history: (()=>{
-    const filePath = process.env.HISTFILE;
-
-    if (!filePath) {
-      return;
-    }
-    try {
-      commandsHistory = fs.readFileSync(filePath)
-          .toString()
-          .split('\n')
-          .slice(0, -1);
-
-      return commandsHistory;
-    }catch{}
-  })(),
 });
 
 function getExe(fileName: string){
