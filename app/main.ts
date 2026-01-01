@@ -17,6 +17,7 @@ const COMMAND_BUILTIN = {
 } as const;
 
 let commandsHistory: string[] = [];
+let historyLastAppend = 0;
 
 function getAllExes() {
   const exes: string[] = [];
@@ -311,10 +312,11 @@ function generateBuiltin(command: string, args: string[]): {
 
            fs.writeFileSync(
             filePath,
-            [...fileHistory, ...commandsHistory].join('\n')+'\n'
+            [...fileHistory, ...commandsHistory.slice(historyLastAppend)].join('\n')+'\n'
           );
           } catch{}
 
+          historyLastAppend = commandsHistory.length - 1;
           return {};
         }
       }
