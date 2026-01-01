@@ -316,7 +316,7 @@ function generateBuiltin(command: string, args: string[]): {
           );
           } catch{}
 
-          historyLastAppend = commandsHistory.length - 1;
+          historyLastAppend = commandsHistory.length;
           return {};
         }
       }
