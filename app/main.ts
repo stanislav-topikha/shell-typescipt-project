@@ -113,6 +113,23 @@ const rl = createInterface({
 
     return ''; // prevent error
   },
+  history: (()=>{
+    const filePath = process.env.HISTFILE;
+
+    if (!filePath) {
+      return;
+    }
+    try {
+      commandsHistory.push(
+        ...fs.readFileSync(filePath)
+          .toString()
+          .split('\n')
+          .slice(0, -1)
+      );
+
+      return commandsHistory;
+    }catch{}
+  })(),
 });
 
 function getExe(fileName: string){
