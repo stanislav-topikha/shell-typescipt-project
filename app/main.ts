@@ -111,7 +111,7 @@ const rl = createInterface({
     rl.write(normalizedInput);
 
     return ''; // prevent error
-  }
+  },
 });
 
 function getExe(fileName: string){
@@ -274,15 +274,34 @@ function generateBuiltin(command: string, args: string[]): {
     }
 
     case (COMMAND_BUILTIN.HISTORY): {
-      const limit = +args.filter(isWord)[0];
+      const argWords = args.filter(isWord);
+      const flag  = argWords[0];
+      const shouldRead = flag === '-r';
+      const shouldLimit = Number.isInteger(+flag) && !shouldRead;
+
+      if (shouldRead) {
+        const filePath = argWords[1];
+
+        try {
+          const fileHistory = fs
+            .readFileSync(filePath)
+            .toString()
+            .split('\n')
+            .filter(isWord);
+
+          commandsHistory.push(...fileHistory);
+
+          return {};
+        } catch {}
+      }
+
       const result = commandsHistory
-          .toReversed()
           .map((s, i) => `${ i + 1}  ${s}`)
-          .slice(Number.isInteger(limit) ? -limit : 0)
+          .slice(shouldLimit ? -flag : 0)
           .join('\n');
 
       return {
-        output:result,
+        output: result,
       };
     }
 
@@ -497,7 +516,11 @@ async function processCommand(input: string) {
 
   rl.prompt();
   rl.on('history', (history) => {
-     commandsHistory = history;
+    const lastRecord = history[0];
+
+    if (lastRecord) {
+      commandsHistory.push(lastRecord);
+    }
   });
 
   rl.on('line', async function (input) {
