@@ -276,37 +276,48 @@ function generateBuiltin(command: string, args: string[]): {
     case (COMMAND_BUILTIN.HISTORY): {
       const argWords = args.filter(isWord);
       const flag  = argWords[0];
-      const shouldRead = flag === '-r';
-      const shouldWrite = flag === '-w' && !shouldRead;
-      const shouldLimit = Number.isInteger(+flag) && !shouldWrite;
 
+      switch(flag) {
+        case('-r'):{
+          const filePath = argWords[1];
 
-      //history -w <path_to_history_file>
-      if (shouldRead) {
-        const filePath = argWords[1];
+          try {
+            const fileHistory = fs
+              .readFileSync(filePath)
+              .toString()
+              .split('\n')
+              .slice(0, -1);
 
-        try {
-          const fileHistory = fs
-            .readFileSync(filePath)
-            .toString()
-            .split('\n')
-            .filter(isWord);
-
-          commandsHistory.push(...fileHistory);
-
+            commandsHistory.push(...fileHistory);
+          } catch {}
           return {};
-        } catch {}
+        }
+        case('-w'):{
+          const filePath = argWords[1];
+
+          try {
+            fs.writeFileSync(filePath, commandsHistory.join('\n')+'\n');
+          } catch {}
+          return {};
+        }
+        case('-a'): {
+          try {
+            const filePath = argWords[1];
+            const fileHistory = fs
+              .readFileSync(filePath)
+              .toString()
+              .split('\n')
+              .slice(0, -1);
+
+           fs.writeFileSync(
+            filePath,
+            [...fileHistory, ...commandsHistory].join('\n')+'\n'
+          );
+          }
+        }
       }
 
-      if (shouldWrite) {
-        const filePath = argWords[1];
-
-        try {
-          fs.writeFileSync(filePath, commandsHistory.join('\n')+'\n');
-          return {};
-        } catch {}
-      }
-
+      const shouldLimit = Number.isInteger(+flag);
       const result = commandsHistory
           .map((s, i) => `${ i + 1}  ${s}`)
           .slice(shouldLimit ? -flag : 0)
