@@ -274,11 +274,15 @@ function generateBuiltin(command: string, args: string[]): {
     }
 
     case (COMMAND_BUILTIN.HISTORY): {
-      return {
-        output: commandsHistory
-          .reverse()
+      const limit = +args.filter(isWord)[0];
+      const result = commandsHistory
+          .toReversed()
           .map((s, i) => `${ i + 1}  ${s}`)
-          .join('\n')
+          .slice(Number.isInteger(limit) ? -limit : 0)
+          .join('\n');
+
+      return {
+        output:result,
       };
     }
 
