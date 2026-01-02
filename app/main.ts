@@ -68,9 +68,9 @@ let commandsHistory = {
   },
   toStringWithLimit(limit: number) {
       return this.records
-              .map((s, i) => `${i + 1}  ${s}`)
-              .slice(-limit)
-              .join('\n');
+            .map((s, i) => `${i + 1}  ${s}`)
+            .slice(-limit)
+            .join('\n');
   }
 };
 
@@ -355,7 +355,7 @@ function generateBuiltin(command: string, args: string[]): {
       }
       return {
         output: commandsHistory.toStringWithLimit(
-          Number.isInteger(+flag) ? -flag : 0
+          Number.isInteger(+flag) ? +flag : 0
         ),
       };
     }
