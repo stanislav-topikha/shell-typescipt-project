@@ -12,12 +12,12 @@ const COMMAND_BUILTIN = {
   Echo: 'echo',
   Type: 'type',
   PWD: 'pwd',
-  CD:'cd',
+  CD: 'cd',
   HISTORY: 'history',
 } as const;
 
 let commandsHistory = {
-  records: (()=>{
+  records: (() => {
     const filePath = process.env.HISTFILE;
 
     if (!filePath) {
@@ -25,21 +25,21 @@ let commandsHistory = {
     }
 
     try {
-    return fs.readFileSync(filePath)
-          .toString()
-          .split('\n')
-          .slice(0, -1);
-    }catch{}
+      return fs.readFileSync(filePath)
+        .toString()
+        .split('\n')
+        .slice(0, -1);
+    } catch { }
 
     return [];
   })(),
   readFromFile(filePath: string) {
     try {
       const fileHistory = fs
-            .readFileSync(filePath)
-            .toString()
-            .split('\n')
-            .slice(0, -1);
+        .readFileSync(filePath)
+        .toString()
+        .split('\n')
+        .slice(0, -1);
 
       this.records.push(...fileHistory);
     } catch { }
@@ -53,10 +53,10 @@ let commandsHistory = {
   appendToFile(filePath: string) {
     try {
       const fileHistory = fs
-            .readFileSync(filePath)
-            .toString()
-            .split('\n')
-            .slice(0, -1);
+        .readFileSync(filePath)
+        .toString()
+        .split('\n')
+        .slice(0, -1);
 
       fs.writeFileSync(
         filePath,
@@ -67,16 +67,16 @@ let commandsHistory = {
     this.historyLastAppend = commandsHistory.records.length;
   },
   toStringWithLimit(limit: number) {
-      return this.records
-            .map((s, i) => `${i + 1}  ${s}`)
-            .slice(-limit)
-            .join('\n');
+    return this.records
+      .map((s, i) => `${i + 1}  ${s}`)
+      .slice(-limit)
+      .join('\n');
   }
 };
 
 const exeNames = function getAllExes() {
   const exes: string[] = [];
-  const possibleExesPaths = (process.env.PATH ||'').split(path.delimiter);
+  const possibleExesPaths = (process.env.PATH || '').split(path.delimiter);
 
   for (const exeFolder of possibleExesPaths) {
     try {
@@ -159,7 +159,7 @@ const rl = createInterface({
     }
 
     processInput = false;
-    rl.write('', {name: 'enter'});
+    rl.write('', { name: 'enter' });
     giveOutput(completions.join('  '));
     processInput = true;
     rl.prompt();
@@ -169,8 +169,8 @@ const rl = createInterface({
   },
 });
 
-function getExe(fileName: string){
-  const envPath = process.env.PATH ||'';
+function getExe(fileName: string) {
+  const envPath = process.env.PATH || '';
   const pathArr = envPath.split(path.delimiter);
 
   for (const tmpPath of pathArr) {
@@ -184,7 +184,7 @@ function getExe(fileName: string){
         filePath,
       };
 
-    } catch {}
+    } catch { }
   }
 
   return null;
@@ -193,21 +193,21 @@ function getExe(fileName: string){
 function getExeOutput(exeName: string, args: string[]) {
   const buffer = spawnSync(exeName, args);
 
-  const stdout =  buffer.stdout.toString();
+  const stdout = buffer.stdout.toString();
   const stderr = buffer.stderr.toString();
 
   return {
-    output:stdout,
+    output: stdout,
     error: stderr,
   };
 }
 
-function giveOutput(input:string) {
+function giveOutput(input: string) {
   const output = input.endsWith('\n')
     ? input
     : `${input}\n`;
 
-    process.stdout.write(output);
+  process.stdout.write(output);
 }
 
 const isWord = (srt: string) => !!srt.trim();
@@ -220,7 +220,7 @@ function processString(str: string) {
   const regexp = RegExp(
     /((?<=\\).{1})|('.+?')|("(?:\\\"|.)+?")|(\s+)|([^\s'"\\]+)/g
   );
-  const  tmpWords = str.match(regexp)|| [];
+  const tmpWords = str.match(regexp) || [];
 
   //remove encapsing quotes, normalize non word stings to single spaces
   return tmpWords.map((string) => {
@@ -233,11 +233,11 @@ function processString(str: string) {
       return string.slice(1, -1).replaceAll(/(?<!\\)\\(?=\\|")/g, '');
     }
 
-    return string.replaceAll(/\s+/g,' ');
+    return string.replaceAll(/\s+/g, ' ');
   }).filter(Boolean);
 }
 
-const REDIRECT_SIGN =  {
+const REDIRECT_SIGN = {
   '>': '>',
   '1>': '1>',
   '2>': '2>',
@@ -249,13 +249,13 @@ const REDIRECT_SIGN =  {
 
 function detectRedirect(
   words: string[]
-): null|{
+): null | {
   redirectIndex: number,
   redirectSign: typeof REDIRECT_SIGN[keyof typeof REDIRECT_SIGN],
   fileArgs?: string,
 } {
   let redirectIndex = null;
-  let redirectSign: null | typeof REDIRECT_SIGN[keyof typeof REDIRECT_SIGN]= null;
+  let redirectSign: null | typeof REDIRECT_SIGN[keyof typeof REDIRECT_SIGN] = null;
 
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
@@ -270,7 +270,7 @@ function detectRedirect(
   }
 
   return (redirectIndex !== null) && redirectSign
-    ? {redirectIndex, redirectSign}
+    ? { redirectIndex, redirectSign }
     : null;
 }
 
@@ -278,7 +278,7 @@ function generateBuiltin(command: string, args: string[]): {
   output?: string,
   error?: string,
 } | null {
-    switch (command) {
+  switch (command) {
     case (COMMAND_BUILTIN.Exit): {
       const filePath = process.env.HISTFILE;
 
@@ -290,33 +290,33 @@ function generateBuiltin(command: string, args: string[]): {
     }
 
     case (COMMAND_BUILTIN.Echo): {
-      return {output: `${args.join('')}\n`};
+      return { output: `${args.join('')}\n` };
     }
 
     case (COMMAND_BUILTIN.Type): {
-        const secondCommand = args.filter(isWord)[0];
+      const secondCommand = args.filter(isWord)[0];
 
-        if (!secondCommand) {
-          return {};
-        }
+      if (!secondCommand) {
+        return {};
+      }
 
-        const rawCommandsPool = Object.values(COMMAND_BUILTIN);
+      const rawCommandsPool = Object.values(COMMAND_BUILTIN);
 
-        if (rawCommandsPool.some(str => str === secondCommand)) {
-          return {output: `${secondCommand} is a shell builtin`};
-        }
+      if (rawCommandsPool.some(str => str === secondCommand)) {
+        return { output: `${secondCommand} is a shell builtin` };
+      }
 
-        const exe = getExe(secondCommand);
+      const exe = getExe(secondCommand);
 
-        if (exe) {
-          return {output: `${exe.fileName} is ${exe.filePath}`};
-        }
+      if (exe) {
+        return { output: `${exe.fileName} is ${exe.filePath}` };
+      }
 
-        return {error: `${secondCommand} not found`};
+      return { error: `${secondCommand} not found` };
     }
 
     case (COMMAND_BUILTIN.PWD): {
-      return {output: process.cwd() + '\n'};
+      return { output: process.cwd() + '\n' };
     }
 
     case (COMMAND_BUILTIN.CD): {
@@ -329,26 +329,26 @@ function generateBuiltin(command: string, args: string[]): {
           : tmpPath;
         process.chdir(tmpLeftover);
       } catch {
-        return {error: `cd: ${tmpPath}: No such file or directory`};
+        return { error: `cd: ${tmpPath}: No such file or directory` };
       }
       return {};
     }
 
     case (COMMAND_BUILTIN.HISTORY): {
       const argWords = args.filter(isWord);
-      const flag  = argWords[0];
+      const flag = argWords[0];
       const filePath = argWords[1];
 
-      switch(flag) {
-        case('-r'):{
+      switch (flag) {
+        case ('-r'): {
           commandsHistory.readFromFile(filePath);
           return {};
         }
-        case('-w'):{
+        case ('-w'): {
           commandsHistory.writeToFile(filePath);
           return {};
         }
-        case('-a'): {
+        case ('-a'): {
           commandsHistory.appendToFile(filePath);
           return {};
         }
@@ -367,29 +367,29 @@ function generateBuiltin(command: string, args: string[]): {
 }
 
 function redirectOutput(
-  {redirectSign, fileArgs}: {
+  { redirectSign, fileArgs }: {
     redirectIndex: number;
     redirectSign: keyof typeof REDIRECT_SIGN;
     fileArgs?: string | undefined;
-},
+  },
   buffer: {
     output?: string | undefined;
     error?: string | undefined;
-}
+  }
 ) {
   if (!fileArgs) {
     return buffer;
   }
 
-  switch(redirectSign) {
+  switch (redirectSign) {
     case '>':
     case '1>': {
-        fs.writeFileSync(fileArgs, buffer.output || '');
-        delete buffer.output;
+      fs.writeFileSync(fileArgs, buffer.output || '');
+      delete buffer.output;
       break;
     }
 
-    case '2>':{
+    case '2>': {
       fs.writeFileSync(fileArgs, buffer.error || '');
       delete buffer.error;
       break;
@@ -401,16 +401,16 @@ function redirectOutput(
       let fileContent;
       try {
         fileContent = fs.readFileSync(fileArgs).toString();
-      } catch {}
+      } catch { }
 
-      if(fileContent && !fileContent.endsWith('\n')) {
+      if (fileContent && !fileContent.endsWith('\n')) {
         fileContent += '\n';
       }
 
       fs.writeFileSync(
         fileArgs,
-        (fileContent??'') + (
-          buffer[redirectSign !== '2>>' ? 'output' : 'error']??''
+        (fileContent ?? '') + (
+          buffer[redirectSign !== '2>>' ? 'output' : 'error'] ?? ''
         )
       );
       delete buffer[redirectSign !== '2>>' ? 'output' : 'error'];
@@ -461,23 +461,25 @@ async function processCommand(input: string) {
   if (pipelineCommands) {
     processInput = false;
 
-    function getUniversalBuffer({name, args}: {name: string, args: string[]}) {
-      const {stdout, stdin} = (() => {
+    function getUniversalBuffer({ name, args }: { name: string, args: string[] }) {
+      const { stdout, stdin } = (() => {
         const builtin = generateBuiltin(name, args);
 
         if (builtin) {
           const chunks: Buffer[] = [];
 
-          const stdout = new Readable({read: function() {
-            this.push((builtin.output??''));
-            this.push(null);
-          }});
+          const stdout = new Readable({
+            read: function () {
+              this.push((builtin.output ?? ''));
+              this.push(null);
+            }
+          });
 
           const stdin = new Writable({
-            write(chunk, _enc, cb){
+            write(chunk, _enc, cb) {
               chunks.push(Buffer.from(chunk));
               cb();
-              },
+            },
 
             final(callback) {
               const stdinStr = Buffer.concat(chunks).toString("utf8");
@@ -497,10 +499,10 @@ async function processCommand(input: string) {
         return spawn(name, args);
       })();
 
-      return {stdout, stdin};
+      return { stdout, stdin };
     }
 
-    await (async function pipeCommands(commands: {name: string, args: string[]}[]) {
+    await (async function pipeCommands(commands: { name: string, args: string[] }[]) {
       let commandA = commands[0];
       let bufferA = getUniversalBuffer(commandA);
 
@@ -511,7 +513,7 @@ async function processCommand(input: string) {
         bufferA.stdout.pipe(bufferB.stdin);
 
         if (i === commands.length - 1) {
-            await new Promise((resolve) => {
+          await new Promise((resolve) => {
             bufferB.stdout?.on('data', (data) => {
               giveOutput(data.toString());
             });
@@ -530,7 +532,7 @@ async function processCommand(input: string) {
   }
 
   if (redirect) {
-    redirect.fileArgs  = rawInputWords
+    redirect.fileArgs = rawInputWords
       .splice(redirect.redirectIndex)
       .filter(isWord)[1];
   }
@@ -548,11 +550,11 @@ async function processCommand(input: string) {
 
   let output = generateBuiltin(command.main, command.args);
 
-  output ??= (()=>{
+  output ??= (() => {
     const exe = getExe(command.main);
 
     if (!exe) {
-      return {error: `${input}: command not found`};
+      return { error: `${input}: command not found` };
     }
 
     return getExeOutput(exe.fileName, command.args.filter(isWord));
@@ -566,28 +568,28 @@ async function processCommand(input: string) {
     return;
   }
 
-  giveOutput((output.error??'') + (output.output??''));
+  giveOutput((output.error ?? '') + (output.output ?? ''));
 }
 
+rl.prompt();
+rl.on('history', (history) => {
+  const lastRecord = history[0];
+
+  if (lastRecord) {
+    commandsHistory.records.push(lastRecord);
+  }
+});
+
+rl.on('line', async function (input) {
+  if (!processInput) {
+    return;
+  }
+
+  try {
+    await processCommand(input);
+  } catch {
+    process.exit();
+  }
+
   rl.prompt();
-  rl.on('history', (history) => {
-    const lastRecord = history[0];
-
-    if (lastRecord) {
-      commandsHistory.records.push(lastRecord);
-    }
-  });
-
-  rl.on('line', async function (input) {
-    if (!processInput) {
-      return;
-    }
-
-    try{
-      await processCommand(input);
-    } catch {
-      process.exit();
-    }
-
-    rl.prompt();
-  });
+});
