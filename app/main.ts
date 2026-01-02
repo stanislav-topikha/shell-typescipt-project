@@ -4,10 +4,10 @@ import * as path from "node:path";
 import { createInterface } from "node:readline";
 import Stream, { Readable, Writable } from "node:stream";
 
-let processInput = true;
-const PROMPT_SIGN = '$ ';
+let isAcceptingInput = true;
+const PROMPT_SYMBOL = '$ ';
 
-const COMMAND_BUILTIN = {
+const BUILTINS = {
   Exit: 'exit',
   Echo: 'echo',
   Type: 'type',
@@ -16,8 +16,8 @@ const COMMAND_BUILTIN = {
   HISTORY: 'history',
 } as const;
 
-let commandsHistory = {
-  records: (() => {
+let commandHistory = {
+  entries: (() => {
     const filePath = process.env.HISTFILE;
 
     if (!filePath) {
@@ -41,15 +41,15 @@ let commandsHistory = {
         .split('\n')
         .slice(0, -1);
 
-      this.records.push(...fileHistory);
+      this.entries.push(...fileHistory);
     } catch { }
   },
   writeToFile(filePath: string) {
     try {
-      fs.writeFileSync(filePath, this.records.join('\n') + '\n');
+      fs.writeFileSync(filePath, this.entries.join('\n') + '\n');
     } catch { }
   },
-  historyLastAppend: 0,
+  lastAppendIndex: 0,
   appendToFile(filePath: string) {
     try {
       const fileHistory = fs
@@ -60,21 +60,21 @@ let commandsHistory = {
 
       fs.writeFileSync(
         filePath,
-        [...fileHistory, ...this.records.slice(this.historyLastAppend)].join('\n') + '\n'
+        [...fileHistory, ...this.entries.slice(this.lastAppendIndex)].join('\n') + '\n'
       );
     } catch { }
 
-    this.historyLastAppend = commandsHistory.records.length;
+    this.lastAppendIndex = commandHistory.entries.length;
   },
   toStringWithLimit(limit: number) {
-    return this.records
+    return this.entries
       .map((s, i) => `${i + 1}  ${s}`)
       .slice(-limit)
       .join('\n');
   }
 };
 
-const exeNames = function getAllExes() {
+const pathExes = function getAllExes() {
   const exes: string[] = [];
   const possibleExesPaths = (process.env.PATH || '').split(path.delimiter);
 
@@ -91,12 +91,12 @@ const exeNames = function getAllExes() {
   return exes;
 }();
 
-const uniqExeNames = Array.from(new Set([...exeNames, ...Object.values(COMMAND_BUILTIN)]));
+const uniqExeNames = Array.from(new Set([...pathExes, ...Object.values(BUILTINS)]));
 
-const rl = createInterface({
+const repl = createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: PROMPT_SIGN,
+  prompt: PROMPT_SYMBOL,
   completer: (userInput: string) => {
     const normalizedInput = userInput.replaceAll('\x07', '');
     const completions = uniqExeNames
@@ -158,12 +158,12 @@ const rl = createInterface({
       return [[normalizedInput + '\x07'], normalizedInput];
     }
 
-    processInput = false;
-    rl.write('', { name: 'enter' });
-    giveOutput(completions.join('  '));
-    processInput = true;
-    rl.prompt();
-    rl.write(normalizedInput);
+    isAcceptingInput = false;
+    repl.write('', { name: 'enter' });
+    writeOutput(completions.join('  '));
+    isAcceptingInput = true;
+    repl.prompt();
+    repl.write(normalizedInput);
 
     return ''; // prevent error
   },
@@ -202,7 +202,7 @@ function getExeOutput(exeName: string, args: string[]) {
   };
 }
 
-function giveOutput(input: string) {
+function writeOutput(input: string) {
   const output = input.endsWith('\n')
     ? input
     : `${input}\n`;
@@ -212,24 +212,24 @@ function giveOutput(input: string) {
 
 const isWord = (srt: string) => !!srt.trim();
 
-const isEncapsed = (s: string, q: `'` | `"`) => {
+const isQuoted = (s: string, q: `'` | `"`) => {
   return s.length >= 2 && s.startsWith(q) && s.endsWith(q);
 };
 
-function processString(str: string) {
+function tokenize(str: string) {
   const regexp = RegExp(
     /((?<=\\).{1})|('.+?')|("(?:\\\"|.)+?")|(\s+)|([^\s'"\\]+)/g
   );
-  const tmpWords = str.match(regexp) || [];
+  const tokens = str.match(regexp) || [];
 
   //remove encapsing quotes, normalize non word stings to single spaces
-  return tmpWords.map((string) => {
+  return tokens.map((string) => {
 
-    if (string.length > 2 && isEncapsed(string, `'`)) {
+    if (string.length > 2 && isQuoted(string, `'`)) {
       return string.slice(1, -1);
     }
 
-    if (string.length > 2 && isEncapsed(string, `"`)) {
+    if (string.length > 2 && isQuoted(string, `"`)) {
       return string.slice(1, -1).replaceAll(/(?<!\\)\\(?=\\|")/g, '');
     }
 
@@ -247,7 +247,7 @@ const REDIRECT_SIGN = {
 } as const;
 
 
-function detectRedirect(
+function parseRedirect(
   words: string[]
 ): null | {
   redirectIndex: number,
@@ -279,28 +279,28 @@ function generateBuiltin(command: string, args: string[]): {
   error?: string,
 } | null {
   switch (command) {
-    case (COMMAND_BUILTIN.Exit): {
+    case (BUILTINS.Exit): {
       const filePath = process.env.HISTFILE;
 
       if (filePath) {
-        commandsHistory.writeToFile(filePath);
+        commandHistory.writeToFile(filePath);
       }
 
       throw "EXIT";
     }
 
-    case (COMMAND_BUILTIN.Echo): {
+    case (BUILTINS.Echo): {
       return { output: `${args.join('')}\n` };
     }
 
-    case (COMMAND_BUILTIN.Type): {
+    case (BUILTINS.Type): {
       const secondCommand = args.filter(isWord)[0];
 
       if (!secondCommand) {
         return {};
       }
 
-      const rawCommandsPool = Object.values(COMMAND_BUILTIN);
+      const rawCommandsPool = Object.values(BUILTINS);
 
       if (rawCommandsPool.some(str => str === secondCommand)) {
         return { output: `${secondCommand} is a shell builtin` };
@@ -315,11 +315,11 @@ function generateBuiltin(command: string, args: string[]): {
       return { error: `${secondCommand} not found` };
     }
 
-    case (COMMAND_BUILTIN.PWD): {
+    case (BUILTINS.PWD): {
       return { output: process.cwd() + '\n' };
     }
 
-    case (COMMAND_BUILTIN.CD): {
+    case (BUILTINS.CD): {
       const tmpPath = args.filter(isWord)[0];
 
       try {
@@ -334,27 +334,27 @@ function generateBuiltin(command: string, args: string[]): {
       return {};
     }
 
-    case (COMMAND_BUILTIN.HISTORY): {
+    case (BUILTINS.HISTORY): {
       const argWords = args.filter(isWord);
       const flag = argWords[0];
       const filePath = argWords[1];
 
       switch (flag) {
         case ('-r'): {
-          commandsHistory.readFromFile(filePath);
+          commandHistory.readFromFile(filePath);
           return {};
         }
         case ('-w'): {
-          commandsHistory.writeToFile(filePath);
+          commandHistory.writeToFile(filePath);
           return {};
         }
         case ('-a'): {
-          commandsHistory.appendToFile(filePath);
+          commandHistory.appendToFile(filePath);
           return {};
         }
       }
       return {
-        output: commandsHistory.toStringWithLimit(
+        output: commandHistory.toStringWithLimit(
           Number.isInteger(+flag) ? +flag : 0
         ),
       };
@@ -423,11 +423,11 @@ function redirectOutput(
 };
 
 async function processCommand(input: string) {
-  let rawInputWords = processString(input);
-  const redirect = detectRedirect(rawInputWords);
+  let rawTokens = tokenize(input);
+  const redirect = parseRedirect(rawTokens);
 
   const pipelineCommands = (() => {
-    const words = rawInputWords.filter(isWord);
+    const words = rawTokens.filter(isWord);
     const commands = [];
 
     for (let i = 0, k = 0; i < words.length; i++) {
@@ -459,9 +459,9 @@ async function processCommand(input: string) {
   })();
 
   if (pipelineCommands) {
-    processInput = false;
+    isAcceptingInput = false;
 
-    function getUniversalBuffer({ name, args }: { name: string, args: string[] }) {
+    function buildCommandStreams({ name, args }: { name: string, args: string[] }) {
       const { stdout, stdin } = (() => {
         const builtin = generateBuiltin(name, args);
 
@@ -483,7 +483,7 @@ async function processCommand(input: string) {
 
             final(callback) {
               const stdinStr = Buffer.concat(chunks).toString("utf8");
-              const result = generateBuiltin(name, processString(stdinStr));
+              const result = generateBuiltin(name, tokenize(stdinStr));
 
               if (result) {
                 stdout.push(result.output);
@@ -504,18 +504,18 @@ async function processCommand(input: string) {
 
     await (async function pipeCommands(commands: { name: string, args: string[] }[]) {
       let commandA = commands[0];
-      let bufferA = getUniversalBuffer(commandA);
+      let bufferA = buildCommandStreams(commandA);
 
       for (let i = 1; i < commands.length; i++) {
         let commandB = commands[i];
-        let bufferB = getUniversalBuffer(commandB);
+        let bufferB = buildCommandStreams(commandB);
 
         bufferA.stdout.pipe(bufferB.stdin);
 
         if (i === commands.length - 1) {
           await new Promise((resolve) => {
             bufferB.stdout?.on('data', (data) => {
-              giveOutput(data.toString());
+              writeOutput(data.toString());
             });
 
             bufferB.stdout?.on('close', () => resolve(null));
@@ -527,25 +527,27 @@ async function processCommand(input: string) {
       }
     })(pipelineCommands);
 
-    processInput = true;
+    isAcceptingInput = true;
     return;
   }
 
   if (redirect) {
-    redirect.fileArgs = rawInputWords
+    redirect.fileArgs = rawTokens
       .splice(redirect.redirectIndex)
       .filter(isWord)[1];
   }
 
-  const mainCommandIndex = rawInputWords.findIndex(isWord);
+  const firstWordIndex = rawTokens.findIndex(isWord);
 
-  if (mainCommandIndex < 0) {
+  if (firstWordIndex < 0) {
     return;
   }
 
+  const secondWordIndex = firstWordIndex + 2;
+
   const command = {
-    main: rawInputWords[mainCommandIndex],
-    args: rawInputWords.slice(mainCommandIndex + 2),
+    main: rawTokens[firstWordIndex],
+    args: rawTokens.slice(secondWordIndex),
   };
 
   let output = generateBuiltin(command.main, command.args);
@@ -568,20 +570,20 @@ async function processCommand(input: string) {
     return;
   }
 
-  giveOutput((output.error ?? '') + (output.output ?? ''));
+  writeOutput((output.error ?? '') + (output.output ?? ''));
 }
 
-rl.prompt();
-rl.on('history', (history) => {
+repl.prompt();
+repl.on('history', (history) => {
   const lastRecord = history[0];
 
   if (lastRecord) {
-    commandsHistory.records.push(lastRecord);
+    commandHistory.entries.push(lastRecord);
   }
 });
 
-rl.on('line', async function (input) {
-  if (!processInput) {
+repl.on('line', async function (input) {
+  if (!isAcceptingInput) {
     return;
   }
 
@@ -591,5 +593,5 @@ rl.on('line', async function (input) {
     process.exit();
   }
 
-  rl.prompt();
+  repl.prompt();
 });
