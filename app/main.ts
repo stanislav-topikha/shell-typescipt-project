@@ -16,7 +16,8 @@ const COMMAND_BUILTIN = {
   HISTORY: 'history',
 } as const;
 
-let commandsHistory: string[] = (()=>{
+let commandsHistory = {
+  records: (()=>{
     const filePath = process.env.HISTFILE;
 
     if (!filePath) {
@@ -31,10 +32,49 @@ let commandsHistory: string[] = (()=>{
     }catch{}
 
     return [];
-  })();
-let historyLastAppend = 0;
+  })(),
+  readFromFile(filePath: string) {
+    try {
+      const fileHistory = fs
+            .readFileSync(filePath)
+            .toString()
+            .split('\n')
+            .slice(0, -1);
 
-function getAllExes() {
+      this.records.push(...fileHistory);
+    } catch { }
+  },
+  writeToFile(filePath: string) {
+    try {
+      fs.writeFileSync(filePath, this.records.join('\n') + '\n');
+    } catch { }
+  },
+  historyLastAppend: 0,
+  appendToFile(filePath: string) {
+    try {
+      const fileHistory = fs
+            .readFileSync(filePath)
+            .toString()
+            .split('\n')
+            .slice(0, -1);
+
+      fs.writeFileSync(
+        filePath,
+        [...fileHistory, ...this.records.slice(this.historyLastAppend)].join('\n') + '\n'
+      );
+    } catch { }
+
+    this.historyLastAppend = commandsHistory.records.length;
+  },
+  toStringWithLimit(limit: number) {
+      return this.records
+              .map((s, i) => `${i + 1}  ${s}`)
+              .slice(-limit)
+              .join('\n');
+  }
+};
+
+const exeNames = function getAllExes() {
   const exes: string[] = [];
   const possibleExesPaths = (process.env.PATH ||'').split(path.delimiter);
 
@@ -49,9 +89,8 @@ function getAllExes() {
     } catch { }
   }
   return exes;
-}
+}();
 
-const exeNames = getAllExes();
 const uniqExeNames = Array.from(new Set([...exeNames, ...Object.values(COMMAND_BUILTIN)]));
 
 const rl = createInterface({
@@ -244,9 +283,7 @@ function generateBuiltin(command: string, args: string[]): {
       const filePath = process.env.HISTFILE;
 
       if (filePath) {
-        try {
-          fs.writeFileSync(filePath, commandsHistory.join('\n')+'\n')
-        } catch {}
+        commandsHistory.writeToFile(filePath);
       }
 
       throw "EXIT";
@@ -300,58 +337,26 @@ function generateBuiltin(command: string, args: string[]): {
     case (COMMAND_BUILTIN.HISTORY): {
       const argWords = args.filter(isWord);
       const flag  = argWords[0];
+      const filePath = argWords[1];
 
       switch(flag) {
         case('-r'):{
-          const filePath = argWords[1];
-
-          try {
-            const fileHistory = fs
-              .readFileSync(filePath)
-              .toString()
-              .split('\n')
-              .slice(0, -1);
-
-            commandsHistory.push(...fileHistory);
-          } catch {}
+          commandsHistory.readFromFile(filePath);
           return {};
         }
         case('-w'):{
-          const filePath = argWords[1];
-
-          try {
-            fs.writeFileSync(filePath, commandsHistory.join('\n')+'\n');
-          } catch {}
+          commandsHistory.writeToFile(filePath);
           return {};
         }
         case('-a'): {
-          try {
-            const filePath = argWords[1];
-            const fileHistory = fs
-              .readFileSync(filePath)
-              .toString()
-              .split('\n')
-              .slice(0, -1);
-
-           fs.writeFileSync(
-            filePath,
-            [...fileHistory, ...commandsHistory.slice(historyLastAppend)].join('\n')+'\n'
-          );
-          } catch{}
-
-          historyLastAppend = commandsHistory.length;
+          commandsHistory.appendToFile(filePath);
           return {};
         }
       }
-
-      const shouldLimit = Number.isInteger(+flag);
-      const result = commandsHistory
-          .map((s, i) => `${ i + 1}  ${s}`)
-          .slice(shouldLimit ? -flag : 0)
-          .join('\n');
-
       return {
-        output: result,
+        output: commandsHistory.toStringWithLimit(
+          Number.isInteger(+flag) ? -flag : 0
+        ),
       };
     }
 
@@ -569,7 +574,7 @@ async function processCommand(input: string) {
     const lastRecord = history[0];
 
     if (lastRecord) {
-      commandsHistory.push(lastRecord);
+      commandsHistory.records.push(lastRecord);
     }
   });
 
