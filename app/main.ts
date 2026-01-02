@@ -222,7 +222,7 @@ function tokenize(str: string) {
   );
   const tokens = str.match(regexp) || [];
 
-  //remove encapsing quotes, normalize non word stings to single spaces
+  //remove quotes, normalize non word stings to single spaces
   return tokens.map((string) => {
 
     if (string.length > 2 && isQuoted(string, `'`)) {
@@ -260,13 +260,12 @@ function parseRedirect(
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
 
-    if (!(Object.values(REDIRECT_SIGN).some(s => s === word))) {
-      continue;
+    for (const sing of Object.values(REDIRECT_SIGN)) {
+      if (sing === word) {
+        redirectSign = word;
+        redirectIndex = i;
+      }
     }
-
-    // @ts-expect-error
-    redirectSign = word;
-    redirectIndex = i;
   }
 
   return (redirectIndex !== null) && redirectSign
