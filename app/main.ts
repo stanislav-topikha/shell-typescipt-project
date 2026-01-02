@@ -241,6 +241,14 @@ function generateBuiltin(command: string, args: string[]): {
 } | null {
     switch (command) {
     case (COMMAND_BUILTIN.Exit): {
+      const filePath = process.env.HISTFILE;
+
+      if (filePath) {
+        try {
+          fs.writeFileSync(filePath, commandsHistory.join('\n')+'\n')
+        } catch {}
+      }
+
       throw "EXIT";
     }
 
